@@ -16,13 +16,10 @@
 package com.github.benmanes.caffeine.jcache.expiry;
 
 import static java.util.Objects.requireNonNull;
-
 import java.io.Serializable;
 import java.util.Objects;
-
 import javax.cache.expiry.Duration;
 import javax.cache.expiry.ExpiryPolicy;
-
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -31,49 +28,47 @@ import org.jspecify.annotations.Nullable;
  * @author ben.manes@gmail.com (Ben Manes)
  */
 public final class JCacheExpiryPolicy implements ExpiryPolicy, Serializable {
-  private static final long serialVersionUID = 1L;
 
-  private final Duration creation;
-  private final @Nullable Duration update;
-  private final @Nullable Duration access;
+    private static final long serialVersionUID = 1L;
 
-  public JCacheExpiryPolicy(Duration creation,
-      @Nullable Duration update, @Nullable Duration access) {
-    this.creation = requireNonNull(creation);
-    this.update = update;
-    this.access = access;
-  }
+    private final Duration creation;
 
-  @Override
-  public Duration getExpiryForCreation() {
-    return creation;
-  }
+    @Nullable
+    private final Duration update;
 
-  @Override
-  public @Nullable Duration getExpiryForUpdate() {
-    return update;
-  }
+    @Nullable
+    private final Duration access;
 
-  @Override
-  public @Nullable Duration getExpiryForAccess() {
-    return access;
-  }
-
-  @Override
-  public boolean equals(@Nullable Object o) {
-    if (o == this) {
-      return true;
-    } else if (!(o instanceof ExpiryPolicy)) {
-      return false;
+    public JCacheExpiryPolicy(Duration creation, @Nullable Duration update, @Nullable Duration access) {
+        this.creation = requireNonNull(creation);
+        this.update = update;
+        this.access = access;
     }
-    var policy = (ExpiryPolicy) o;
-    return Objects.equals(creation, policy.getExpiryForCreation())
-        && Objects.equals(update, policy.getExpiryForUpdate())
-        && Objects.equals(access, policy.getExpiryForAccess());
-  }
 
-  @Override
-  public int hashCode() {
-    return Objects.hash(creation, update, access);
-  }
+    @Override
+    public Duration getExpiryForCreation() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    @Nullable
+    public Duration getExpiryForUpdate() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    @Nullable
+    public Duration getExpiryForAccess() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public boolean equals(@Nullable Object o) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public int hashCode() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

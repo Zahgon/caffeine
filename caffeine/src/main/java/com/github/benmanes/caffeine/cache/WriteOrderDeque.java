@@ -16,9 +16,7 @@
 package com.github.benmanes.caffeine.cache;
 
 import java.util.Deque;
-
 import org.jspecify.annotations.Nullable;
-
 import com.github.benmanes.caffeine.cache.WriteOrderDeque.WriteOrder;
 
 /**
@@ -29,74 +27,76 @@ import com.github.benmanes.caffeine.cache.WriteOrderDeque.WriteOrder;
  */
 final class WriteOrderDeque<E extends WriteOrder<E>> extends AbstractLinkedDeque<E> {
 
-  @Override
-  public boolean contains(Object o) {
-    return (o instanceof WriteOrder<?>) && contains((WriteOrder<?>) o);
-  }
-
-  // A fast-path containment check
-  boolean contains(WriteOrder<?> e) {
-    return (e.getPreviousInWriteOrder() != null)
-        || (e.getNextInWriteOrder() != null)
-        || (e == first);
-  }
-
-  @Override
-  @SuppressWarnings("unchecked")
-  public boolean remove(Object o) {
-    return (o instanceof WriteOrder<?>) && remove((E) o);
-  }
-
-  // A fast-path removal
-  public boolean remove(E e) {
-    if (contains(e)) {
-      unlink(e);
-      return true;
+    @Override
+    public boolean contains(Object o) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    return false;
-  }
 
-  @Override
-  public @Nullable E getPrevious(E e) {
-    return e.getPreviousInWriteOrder();
-  }
+    // A fast-path containment check
+    boolean contains(WriteOrder<?> e) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  public void setPrevious(E e, @Nullable E prev) {
-    e.setPreviousInWriteOrder(prev);
-  }
+    @Override
+    @SuppressWarnings("unchecked")
+    public boolean remove(Object o) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  public @Nullable E getNext(E e) {
-    return e.getNextInWriteOrder();
-  }
+    // A fast-path removal
+    public boolean remove(E e) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  public void setNext(E e, @Nullable E next) {
-    e.setNextInWriteOrder(next);
-  }
+    @Override
+    @Nullable
+    public E getPrevious(E e) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  /**
-   * An element that is linked on the {@link Deque}.
-   */
-  interface WriteOrder<T extends WriteOrder<T>> {
+    @Override
+    public void setPrevious(E e, @Nullable E prev) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    @Nullable
+    public E getNext(E e) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public void setNext(E e, @Nullable E next) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
     /**
-     * Retrieves the previous element or {@code null} if either the element is unlinked or the
-     * first element on the deque.
+     * An element that is linked on the {@link Deque}.
      */
-    @Nullable T getPreviousInWriteOrder();
+    interface WriteOrder<T extends WriteOrder<T>> {
 
-    /** Sets the previous element or {@code null} if there is no link. */
-    void setPreviousInWriteOrder(@Nullable T prev);
+        /**
+         * Retrieves the previous element or {@code null} if either the element is unlinked or the
+         * first element on the deque.
+         */
+        @Nullable
+        T getPreviousInWriteOrder();
 
-    /**
-     * Retrieves the next element or {@code null} if either the element is unlinked or the last
-     * element on the deque.
-     */
-    @Nullable T getNextInWriteOrder();
+        /**
+         * Sets the previous element or {@code null} if there is no link.
+         */
+        void setPreviousInWriteOrder(@Nullable T prev);
 
-    /** Sets the next element or {@code null} if there is no link. */
-    void setNextInWriteOrder(@Nullable T next);
-  }
+        /**
+         * Retrieves the next element or {@code null} if either the element is unlinked or the last
+         * element on the deque.
+         */
+        @Nullable
+        T getNextInWriteOrder();
+
+        /**
+         * Sets the next element or {@code null} if there is no link.
+         */
+        void setNextInWriteOrder(@Nullable T next);
+    }
 }

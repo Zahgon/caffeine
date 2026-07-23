@@ -16,10 +16,8 @@
 package com.github.benmanes.caffeine.cache.stats;
 
 import java.util.Objects;
-
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
-
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.errorprone.annotations.Immutable;
@@ -63,318 +61,121 @@ import com.google.errorprone.annotations.Immutable;
 @Immutable
 @NullMarked
 public final class CacheStats {
-  private static final CacheStats EMPTY_STATS = CacheStats.of(0L, 0L, 0L, 0L, 0L, 0L, 0L);
 
-  private final long hitCount;
-  private final long missCount;
-  private final long loadSuccessCount;
-  private final long loadFailureCount;
-  private final long totalLoadTime;
-  private final long evictionCount;
-  private final long evictionWeight;
+    private static final CacheStats EMPTY_STATS = CacheStats.of(0L, 0L, 0L, 0L, 0L, 0L, 0L);
 
-  private CacheStats(long hitCount, long missCount, long loadSuccessCount, long loadFailureCount,
-      long totalLoadTime, long evictionCount, long evictionWeight) {
-    if ((hitCount < 0) || (missCount < 0) || (loadSuccessCount < 0) || (loadFailureCount < 0)
-        || (totalLoadTime < 0) || (evictionCount < 0) || (evictionWeight < 0)) {
-      throw new IllegalArgumentException();
+    private final long hitCount;
+
+    private final long missCount;
+
+    private final long loadSuccessCount;
+
+    private final long loadFailureCount;
+
+    private final long totalLoadTime;
+
+    private final long evictionCount;
+
+    private final long evictionWeight;
+
+    private CacheStats(long hitCount, long missCount, long loadSuccessCount, long loadFailureCount, long totalLoadTime, long evictionCount, long evictionWeight) {
+        if ((hitCount < 0) || (missCount < 0) || (loadSuccessCount < 0) || (loadFailureCount < 0) || (totalLoadTime < 0) || (evictionCount < 0) || (evictionWeight < 0)) {
+            throw new IllegalArgumentException();
+        }
+        this.hitCount = hitCount;
+        this.missCount = missCount;
+        this.loadSuccessCount = loadSuccessCount;
+        this.loadFailureCount = loadFailureCount;
+        this.totalLoadTime = totalLoadTime;
+        this.evictionCount = evictionCount;
+        this.evictionWeight = evictionWeight;
     }
-    this.hitCount = hitCount;
-    this.missCount = missCount;
-    this.loadSuccessCount = loadSuccessCount;
-    this.loadFailureCount = loadFailureCount;
-    this.totalLoadTime = totalLoadTime;
-    this.evictionCount = evictionCount;
-    this.evictionWeight = evictionWeight;
-  }
 
-  /**
-   * Returns a {@code CacheStats} representing the specified statistics.
-   *
-   * @param hitCount the number of cache hits
-   * @param missCount the number of cache misses
-   * @param loadSuccessCount the number of successful cache loads
-   * @param loadFailureCount the number of failed cache loads
-   * @param totalLoadTime the total load time (success and failure)
-   * @param evictionCount the number of entries evicted from the cache
-   * @param evictionWeight the sum of weights of entries evicted from the cache
-   * @return a {@code CacheStats} representing the specified statistics
-   * @throws IllegalArgumentException if the metric is negative
-   */
-  public static CacheStats of(long hitCount, long missCount, long loadSuccessCount,
-      long loadFailureCount, long totalLoadTime, long evictionCount, long evictionWeight) {
-    // Many parameters of the same type in a row is a bad thing, but this class is not constructed
-    // by end users and is too fine-grained for a builder.
-    return new CacheStats(hitCount, missCount, loadSuccessCount,
-        loadFailureCount, totalLoadTime, evictionCount, evictionWeight);
-  }
-
-  /**
-   * Returns a statistics instance where no cache events have been recorded.
-   *
-   * @return an empty statistics instance
-   */
-  public static CacheStats empty() {
-    return EMPTY_STATS;
-  }
-
-  /**
-   * Returns the number of times {@link Cache} lookup methods have returned either a cached or
-   * uncached value. This is defined as {@code hitCount + missCount}.
-   * <p>
-   * <b>Note:</b> the values of the metrics are undefined in case of overflow (though it is
-   * guaranteed not to throw an exception). If you require specific handling, we recommend
-   * implementing your own stats collector.
-   *
-   * @return the {@code hitCount + missCount}
-   */
-  public long requestCount() {
-    return saturatedAdd(hitCount, missCount);
-  }
-
-  /**
-   * Returns the number of times {@link Cache} lookup methods have returned a cached value.
-   *
-   * @return the number of times {@link Cache} lookup methods have returned a cached value
-   */
-  public long hitCount() {
-    return hitCount;
-  }
-
-  /**
-   * Returns the ratio of cache requests which were hits. This is defined as
-   * {@code hitCount / requestCount}, or {@code 1.0} when {@code requestCount == 0}. Note that
-   * {@code hitRate + missRate =~ 1.0}.
-   *
-   * @return the ratio of cache requests which were hits
-   */
-  public double hitRate() {
-    long requestCount = requestCount();
-    return (requestCount == 0) ? 1.0 : (double) hitCount / requestCount;
-  }
-
-  /**
-   * Returns the number of times {@link Cache} lookup methods have returned an uncached (newly
-   * loaded) value, or null. Multiple concurrent calls to {@link Cache} lookup methods on an absent
-   * value can result in multiple misses, all returning the results of a single cache load
-   * operation.
-   *
-   * @return the number of times {@link Cache} lookup methods have returned an uncached (newly
-   *         loaded) value, or null
-   */
-  public long missCount() {
-    return missCount;
-  }
-
-  /**
-   * Returns the ratio of cache requests which were misses. This is defined as
-   * {@code missCount / requestCount}, or {@code 0.0} when {@code requestCount == 0}.
-   * Note that {@code hitRate + missRate =~ 1.0}. Cache misses include all requests which
-   * weren't cache hits, including requests which resulted in either successful or failed loading
-   * attempts, and requests which waited for other threads to finish loading. It is thus the case
-   * that {@code missCount >= loadSuccessCount + loadFailureCount}. Multiple
-   * concurrent misses for the same key will result in a single load operation.
-   *
-   * @return the ratio of cache requests which were misses
-   */
-  public double missRate() {
-    long requestCount = requestCount();
-    return (requestCount == 0) ? 0.0 : (double) missCount / requestCount;
-  }
-
-  /**
-   * Returns the total number of times that {@link Cache} lookup methods attempted to load new
-   * values. This includes both successful load operations and those that threw exceptions.
-   * This is defined as {@code loadSuccessCount + loadFailureCount}.
-   * <p>
-   * <b>Note:</b> the values of the metrics are undefined in case of overflow (though it is
-   * guaranteed not to throw an exception). If you require specific handling, we recommend
-   * implementing your own stats collector.
-   *
-   * @return the {@code loadSuccessCount + loadFailureCount}
-   */
-  public long loadCount() {
-    return saturatedAdd(loadSuccessCount, loadFailureCount);
-  }
-
-  /**
-   * Returns the number of times {@link Cache} lookup methods have successfully loaded a new value.
-   * This is always incremented in conjunction with {@link #missCount}, though {@code missCount}
-   * is also incremented when an exception is encountered during cache loading (see
-   * {@link #loadFailureCount}). Multiple concurrent misses for the same key will result in a
-   * single load operation.
-   *
-   * @return the number of times {@link Cache} lookup methods have successfully loaded a new value
-   */
-  public long loadSuccessCount() {
-    return loadSuccessCount;
-  }
-
-  /**
-   * Returns the number of times {@link Cache} lookup methods failed to load a new value, either
-   * because no value was found or an exception was thrown while loading. This is always incremented
-   * in conjunction with {@code missCount}, though {@code missCount} is also incremented when cache
-   * loading completes successfully (see {@link #loadSuccessCount}). Multiple concurrent misses for
-   * the same key will result in a single load operation.
-   *
-   * @return the number of times {@link Cache} lookup methods failed to load a new value
-   */
-  public long loadFailureCount() {
-    return loadFailureCount;
-  }
-
-  /**
-   * Returns the ratio of cache loading attempts which threw exceptions. This is defined as
-   * {@code loadFailureCount / (loadSuccessCount + loadFailureCount)}, or {@code 0.0} when
-   * {@code loadSuccessCount + loadFailureCount == 0}.
-   * <p>
-   * <b>Note:</b> the values of the metrics are undefined in case of overflow (though it is
-   * guaranteed not to throw an exception). If you require specific handling, we recommend
-   * implementing your own stats collector.
-   *
-   * @return the ratio of cache loading attempts which threw exceptions
-   */
-  public double loadFailureRate() {
-    long totalLoadCount = saturatedAdd(loadSuccessCount, loadFailureCount);
-    return (totalLoadCount == 0) ? 0.0 : (double) loadFailureCount / totalLoadCount;
-  }
-
-  /**
-   * Returns the total number of nanoseconds the cache has spent loading new values. This can be
-   * used to calculate the miss penalty. This value is increased every time {@code loadSuccessCount}
-   * or {@code loadFailureCount} is incremented.
-   *
-   * @return the total number of nanoseconds the cache has spent loading new values
-   */
-  public long totalLoadTime() {
-    return totalLoadTime;
-  }
-
-  /**
-   * Returns the average number of nanoseconds spent loading new values. This is defined as
-   * {@code totalLoadTime / (loadSuccessCount + loadFailureCount)}.
-   * <p>
-   * <b>Note:</b> the values of the metrics are undefined in case of overflow (though it is
-   * guaranteed not to throw an exception). If you require specific handling, we recommend
-   * implementing your own stats collector.
-   *
-   * @return the average number of nanoseconds spent loading new values
-   */
-  public double averageLoadPenalty() {
-    long totalLoadCount = saturatedAdd(loadSuccessCount, loadFailureCount);
-    return (totalLoadCount == 0) ? 0.0 : (double) totalLoadTime / totalLoadCount;
-  }
-
-  /**
-   * Returns the number of times an entry has been evicted. This count does not include manual
-   * {@linkplain Cache#invalidate invalidations}.
-   *
-   * @return the number of times an entry has been evicted
-   */
-  public long evictionCount() {
-    return evictionCount;
-  }
-
-  /**
-   * Returns the sum of weights of evicted entries. This total does not include manual
-   * {@linkplain Cache#invalidate invalidations}.
-   *
-   * @return the sum of weights of evicted entities
-   */
-  public long evictionWeight() {
-    return evictionWeight;
-  }
-
-  /**
-   * Returns a new {@code CacheStats} representing the difference between this {@code CacheStats}
-   * and {@code other}. Negative values, which aren't supported by {@code CacheStats} will be
-   * rounded up to zero.
-   *
-   * @param other the statistics to subtract with
-   * @return the difference between this instance and {@code other}
-   */
-  public CacheStats minus(CacheStats other) {
-    return CacheStats.of(
-        Math.max(0L, hitCount - other.hitCount),
-        Math.max(0L, missCount - other.missCount),
-        Math.max(0L, loadSuccessCount - other.loadSuccessCount),
-        Math.max(0L, loadFailureCount - other.loadFailureCount),
-        Math.max(0L, totalLoadTime - other.totalLoadTime),
-        Math.max(0L, evictionCount - other.evictionCount),
-        Math.max(0L, evictionWeight - other.evictionWeight));
-  }
-
-  /**
-   * Returns a new {@code CacheStats} representing the sum of this {@code CacheStats} and
-   * {@code other}.
-   * <p>
-   * <b>Note:</b> the values of the metrics are undefined in case of overflow (though it is
-   * guaranteed not to throw an exception). If you require specific handling, we recommend
-   * implementing your own stats collector.
-   *
-   * @param other the statistics to add with
-   * @return the sum of the statistics
-   */
-  public CacheStats plus(CacheStats other) {
-    return CacheStats.of(
-        saturatedAdd(hitCount, other.hitCount),
-        saturatedAdd(missCount, other.missCount),
-        saturatedAdd(loadSuccessCount, other.loadSuccessCount),
-        saturatedAdd(loadFailureCount, other.loadFailureCount),
-        saturatedAdd(totalLoadTime, other.totalLoadTime),
-        saturatedAdd(evictionCount, other.evictionCount),
-        saturatedAdd(evictionWeight, other.evictionWeight));
-  }
-
-  /**
-   * Returns the sum of {@code a} and {@code b} unless it would overflow or underflow in which case
-   * {@code Long.MAX_VALUE} or {@code Long.MIN_VALUE} is returned, respectively.
-   */
-  @SuppressWarnings("ShortCircuitBoolean")
-  static long saturatedAdd(long a, long b) {
-    long naiveSum = a + b;
-    if (((a ^ b) < 0) | ((a ^ naiveSum) >= 0)) {
-      // If a and b have different signs or a has the same sign as the result then there was no
-      // overflow, return.
-      return naiveSum;
+    public static CacheStats of(long hitCount, long missCount, long loadSuccessCount, long loadFailureCount, long totalLoadTime, long evictionCount, long evictionWeight) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    // we did over/under flow, if the sign is negative we should return MAX otherwise MIN
-    return Long.MAX_VALUE + ((naiveSum >>> (Long.SIZE - 1)) ^ 1);
-  }
 
-  @Override
-  public int hashCode() {
-    return Objects.hash(hitCount, missCount, loadSuccessCount,
-        loadFailureCount, totalLoadTime, evictionCount, evictionWeight);
-  }
-
-  @Override
-  public boolean equals(@Nullable Object o) {
-    if (o == this) {
-      return true;
-    } else if (!(o instanceof CacheStats)) {
-      return false;
+    public static CacheStats empty() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    var other = (CacheStats) o;
-    return hitCount == other.hitCount
-        && missCount == other.missCount
-        && loadSuccessCount == other.loadSuccessCount
-        && loadFailureCount == other.loadFailureCount
-        && totalLoadTime == other.totalLoadTime
-        && evictionCount == other.evictionCount
-        && evictionWeight == other.evictionWeight;
-  }
 
-  @Override
-  public String toString() {
-    return getClass().getSimpleName() + '{'
-        + "hitCount=" + hitCount + ", "
-        + "missCount=" + missCount + ", "
-        + "loadSuccessCount=" + loadSuccessCount + ", "
-        + "loadFailureCount=" + loadFailureCount + ", "
-        + "totalLoadTime=" + totalLoadTime + ", "
-        + "evictionCount=" + evictionCount + ", "
-        + "evictionWeight=" + evictionWeight
-        + '}';
-  }
+    public long requestCount() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public long hitCount() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public double hitRate() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public long missCount() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public double missRate() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public long loadCount() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public long loadSuccessCount() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public long loadFailureCount() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public double loadFailureRate() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public long totalLoadTime() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public double averageLoadPenalty() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public long evictionCount() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public long evictionWeight() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public CacheStats minus(CacheStats other) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public CacheStats plus(CacheStats other) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @SuppressWarnings("ShortCircuitBoolean")
+    static long saturatedAdd(long a, long b) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public int hashCode() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public boolean equals(@Nullable Object o) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public String toString() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

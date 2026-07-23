@@ -17,7 +17,6 @@ package com.github.benmanes.caffeine.cache.simulator.parser;
 
 import java.io.Closeable;
 import java.io.IOException;
-
 import com.github.benmanes.caffeine.cache.simulator.policy.AccessEvent;
 
 /**
@@ -28,12 +27,16 @@ import com.github.benmanes.caffeine.cache.simulator.policy.AccessEvent;
 @SuppressWarnings("EmptyMethod")
 public interface TraceWriter extends Closeable {
 
-  /** Writes the header for the trace format. */
-  default void writeHeader() throws IOException {}
+    default void writeHeader() throws IOException {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  /** Writes the event in the trace format. */
-  void writeEvent(AccessEvent event) throws IOException;
+    /**
+     * Writes the event in the trace format.
+     */
+    void writeEvent(AccessEvent event) throws IOException;
 
-  /** Writes the footer for the trace format. */
-  default void writeFooter() throws IOException {}
+    default void writeFooter() throws IOException {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

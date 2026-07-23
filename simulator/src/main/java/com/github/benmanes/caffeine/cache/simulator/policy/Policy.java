@@ -18,7 +18,6 @@ package com.github.benmanes.caffeine.cache.simulator.policy;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
-
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
@@ -30,49 +29,61 @@ import java.lang.annotation.Target;
  */
 public interface Policy {
 
-  /** Records that the entry was accessed. */
-  void record(AccessEvent event);
+    /**
+     * Records that the entry was accessed.
+     */
+    void record(AccessEvent event);
 
-  /** Indicates that the recording has completed. */
-  default void finished() {}
-
-  /** Returns the cache efficiency statistics. */
-  PolicyStats stats();
-
-  /** The policy's name. */
-  @SuppressWarnings("ConstantValue")
-  default String name() {
-    PolicySpec policySpec = getClass().getAnnotation(PolicySpec.class);
-    if ((policySpec != null) && isNotBlank(policySpec.name())) {
-      return policySpec.name().trim();
+    default void finished() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    checkState(stats() != null, "The @%s name must be specified on %s or by the %s",
-        PolicySpec.class.getSimpleName(), getClass(), PolicyStats.class.getSimpleName());
-    return stats().name();
-  }
 
-  /** The additional features supported. */
-  enum Characteristic {
-    WEIGHTED
-  }
+    /**
+     * Returns the cache efficiency statistics.
+     */
+    PolicyStats stats();
 
-  /** An optional annotation to declare additional capabilities. */
-  @Retention(RUNTIME)
-  @Target(ElementType.TYPE)
-  @interface PolicySpec {
-
-    /** The policy's unique name. */
-    String name() default "";
-
-    /** The event features that this policy supports. */
-    Characteristic[] characteristics() default {};
-  }
-
-  /** A policy that does not exploit external event metadata. */
-  interface KeyOnlyPolicy extends Policy {
-    @Override default void record(AccessEvent event) {
-      record(event.key());
+    @SuppressWarnings("ConstantValue")
+    default String name() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    void record(long key);
-  }
+
+    /**
+     * The additional features supported.
+     */
+    enum Characteristic {
+
+        WEIGHTED
+    }
+
+    /**
+     * An optional annotation to declare additional capabilities.
+     */
+    @Retention(RUNTIME)
+    @Target(ElementType.TYPE)
+    @interface PolicySpec {
+
+        /**
+         * The policy's unique name.
+         */
+        String name() default "";
+
+        /**
+         * The event features that this policy supports.
+         */
+        Characteristic[] characteristics() default {};
+    }
+
+    /**
+     * A policy that does not exploit external event metadata.
+     */
+    interface KeyOnlyPolicy extends Policy {
+
+        @Override
+        default void record(AccessEvent event) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        void record(long key);
+    }
 }

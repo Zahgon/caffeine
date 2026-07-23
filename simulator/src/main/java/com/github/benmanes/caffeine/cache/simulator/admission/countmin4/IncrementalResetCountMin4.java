@@ -24,34 +24,22 @@ import com.typesafe.config.Config;
  * @author ben.manes@gmail.com (Ben Manes)
  */
 public final class IncrementalResetCountMin4 extends CountMin4 {
-  final int interval;
 
-  int additions;
-  int cursor;
+    final int interval;
 
-  public IncrementalResetCountMin4(Config config) {
-    super(config);
-    var settings = new BasicSettings(config);
-    interval = settings.tinyLfu().countMin4().incremental().interval();
-    cursor = settings.randomSeed();
-  }
+    int additions;
 
-  @Override
-  protected void tryReset(boolean added) {
-    if (!added) {
-      return;
+    int cursor;
+
+    public IncrementalResetCountMin4(Config config) {
+        super(config);
+        var settings = new BasicSettings(config);
+        interval = settings.tinyLfu().countMin4().incremental().interval();
+        cursor = settings.randomSeed();
     }
 
-    additions++;
-
-    if (additions != interval) {
-      return;
+    @Override
+    protected void tryReset(boolean added) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-
-    int i = cursor & tableMask;
-    table[i] = (table[i] >>> 1) & RESET_MASK;
-
-    cursor++;
-    additions = 0;
-  }
 }

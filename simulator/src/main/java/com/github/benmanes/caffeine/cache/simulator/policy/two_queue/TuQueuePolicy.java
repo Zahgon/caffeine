@@ -17,16 +17,13 @@ package com.github.benmanes.caffeine.cache.simulator.policy.two_queue;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
-
 import org.jspecify.annotations.Nullable;
-
 import com.github.benmanes.caffeine.cache.simulator.BasicSettings;
 import com.github.benmanes.caffeine.cache.simulator.policy.Policy.KeyOnlyPolicy;
 import com.github.benmanes.caffeine.cache.simulator.policy.Policy.PolicySpec;
 import com.github.benmanes.caffeine.cache.simulator.policy.PolicyStats;
 import com.google.common.base.MoreObjects;
 import com.typesafe.config.Config;
-
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 
@@ -55,197 +52,174 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
  */
 @PolicySpec(name = "two-queue.TuQueue")
 public final class TuQueuePolicy implements KeyOnlyPolicy {
-  private final Long2ObjectMap<Node> data;
-  private final PolicyStats policyStats;
-  private final int maximumSize;
 
-  private int sizeHot;
-  private final int maxHot;
-  private final Node headHot;
+    private final Long2ObjectMap<Node> data;
 
-  private int sizeWarm;
-  private final int maxWarm;
-  private final Node headWarm;
+    private final PolicyStats policyStats;
 
-  private int sizeCold;
-  private final Node headCold;
+    private final int maximumSize;
 
-  @SuppressWarnings("this-escape")
-  public TuQueuePolicy(Config config) {
-    var settings = new TuQueueSettings(config);
+    private int sizeHot;
 
-    this.headHot = new Node();
-    this.headWarm = new Node();
-    this.headCold = new Node();
-    this.data = new Long2ObjectOpenHashMap<>();
-    this.policyStats = new PolicyStats(name());
-    this.maximumSize = Math.toIntExact(settings.maximumSize());
-    this.maxHot = (int) (maximumSize * settings.percentHot());
-    this.maxWarm = (int) (maximumSize * settings.percentWarm());
-  }
+    private final int maxHot;
 
-  @Override
-  public void record(long key) {
-    @Nullable Node node = data.get(key);
-    policyStats.recordOperation();
-    if (node == null) {
-      policyStats.recordMiss();
-      onMiss(key);
-    } else {
-      policyStats.recordHit();
-      onHit(node);
-    }
-  }
+    private final Node headHot;
 
-  private void onHit(Node node) {
-    requireNonNull(node.type);
-    switch (node.type) {
-      case HOT -> node.moveToTail(headHot);
-      case WARM -> node.moveToTail(headWarm);
-      case COLD -> {
-        // If we have a cache hit on a cold buffer, it turns into a warm buffer and goes to the
-        // front of the warm queue. Then as the warm queue lengthens, buffers start slipping from
-        // the end onto the cold queue.
-        node.remove();
-        sizeCold--;
+    private int sizeWarm;
 
-        node.type = QueueType.WARM;
-        node.appendToTail(headWarm);
-        sizeWarm++;
+    private final int maxWarm;
 
-        if (sizeWarm > maxWarm) {
-          Node demoted = requireNonNull(headWarm.next);
-          demoted.remove();
-          sizeWarm--;
-          demoted.type = QueueType.COLD;
-          demoted.appendToTail(headCold);
-          sizeCold++;
-        }
-      }
-    }
-  }
+    private final Node headWarm;
 
-  /** Adds the entry to the cache as HOT, overflowing to the COLD queue, and evicts if necessary. */
-  private void onMiss(long key) {
-    var node = new Node(key);
-    node.type = QueueType.HOT;
-    node.appendToTail(headHot);
-    data.put(key, node);
-    sizeHot++;
+    private int sizeCold;
 
-    if (sizeHot > maxHot) {
-      Node demoted = requireNonNull(headHot.next);
-      demoted.remove();
-      sizeHot--;
-      demoted.appendToTail(headCold);
-      demoted.type = QueueType.COLD;
-      sizeCold++;
-      evict();
-    }
-  }
+    private final Node headCold;
 
-  private void evict() {
-    if (data.size() > maximumSize) {
-      Node victim = requireNonNull(headCold.next);
-      data.remove(victim.key);
-      victim.remove();
-      sizeCold--;
-
-      policyStats.recordEviction();
-    }
-  }
-
-  @Override
-  public PolicyStats stats() {
-    return policyStats;
-  }
-
-  @Override
-  public void finished() {
-    checkState(sizeHot + sizeWarm + sizeCold == data.size());
-  }
-
-  enum QueueType {
-    HOT,
-    WARM,
-    COLD,
-  }
-
-  static final class Node {
-    final long key;
-
-    @Nullable Node prev;
-    @Nullable Node next;
-    @Nullable QueueType type;
-
-    Node() {
-      this.key = Long.MIN_VALUE;
-      this.prev = this;
-      this.next = this;
-    }
-
-    Node(long key) {
-      this.key = key;
-    }
-
-    /** Appends the node to the tail of the list. */
-    public void appendToTail(Node head) {
-      Node tail = requireNonNull(head.prev);
-      head.prev = this;
-      tail.next = this;
-      next = head;
-      prev = tail;
-    }
-
-    /** Moves the node to the tail. */
-    public void moveToTail(Node head) {
-      requireNonNull(prev);
-      requireNonNull(next);
-
-      // unlink
-      prev.next = next;
-      next.prev = prev;
-
-      // link
-      next = head;
-      prev = requireNonNull(head.prev);
-      head.prev = this;
-      prev.next = this;
-    }
-
-    /** Removes the node from the list. */
-    public void remove() {
-      requireNonNull(prev);
-      requireNonNull(next);
-
-      prev.next = next;
-      next.prev = prev;
-      prev = next = null;
-      type = null;
+    @SuppressWarnings("this-escape")
+    public TuQueuePolicy(Config config) {
+        var settings = new TuQueueSettings(config);
+        this.headHot = new Node();
+        this.headWarm = new Node();
+        this.headCold = new Node();
+        this.data = new Long2ObjectOpenHashMap<>();
+        this.policyStats = new PolicyStats(name());
+        this.maximumSize = Math.toIntExact(settings.maximumSize());
+        this.maxHot = (int) (maximumSize * settings.percentHot());
+        this.maxWarm = (int) (maximumSize * settings.percentWarm());
     }
 
     @Override
-    public String toString() {
-      return MoreObjects.toStringHelper(this)
-          .add("key", key)
-          .add("type", type)
-          .toString();
+    public void record(long key) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  static final class TuQueueSettings extends BasicSettings {
-    public TuQueueSettings(Config config) {
-      super(config);
+    private void onHit(Node node) {
+        requireNonNull(node.type);
+        switch(node.type) {
+            case HOT ->
+                node.moveToTail(headHot);
+            case WARM ->
+                node.moveToTail(headWarm);
+            case COLD ->
+                {
+                    // If we have a cache hit on a cold buffer, it turns into a warm buffer and goes to the
+                    // front of the warm queue. Then as the warm queue lengthens, buffers start slipping from
+                    // the end onto the cold queue.
+                    node.remove();
+                    sizeCold--;
+                    node.type = QueueType.WARM;
+                    node.appendToTail(headWarm);
+                    sizeWarm++;
+                    if (sizeWarm > maxWarm) {
+                        Node demoted = requireNonNull(headWarm.next);
+                        demoted.remove();
+                        sizeWarm--;
+                        demoted.type = QueueType.COLD;
+                        demoted.appendToTail(headCold);
+                        sizeCold++;
+                    }
+                }
+        }
     }
-    public double percentHot() {
-      double percentHot = config().getDouble("tu-queue.percent-hot");
-      checkState(percentHot < 1.0);
-      return percentHot;
+
+    /**
+     * Adds the entry to the cache as HOT, overflowing to the COLD queue, and evicts if necessary.
+     */
+    private void onMiss(long key) {
+        var node = new Node(key);
+        node.type = QueueType.HOT;
+        node.appendToTail(headHot);
+        data.put(key, node);
+        sizeHot++;
+        if (sizeHot > maxHot) {
+            Node demoted = requireNonNull(headHot.next);
+            demoted.remove();
+            sizeHot--;
+            demoted.appendToTail(headCold);
+            demoted.type = QueueType.COLD;
+            sizeCold++;
+            evict();
+        }
     }
-    public double percentWarm() {
-      double percentWarm = config().getDouble("tu-queue.percent-warm");
-      checkState(percentWarm < 1.0);
-      return percentWarm;
+
+    private void evict() {
+        if (data.size() > maximumSize) {
+            Node victim = requireNonNull(headCold.next);
+            data.remove(victim.key);
+            victim.remove();
+            sizeCold--;
+            policyStats.recordEviction();
+        }
     }
-  }
+
+    @Override
+    public PolicyStats stats() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public void finished() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    enum QueueType {
+
+        HOT, WARM, COLD
+    }
+
+    static final class Node {
+
+        final long key;
+
+        @Nullable
+        Node prev;
+
+        @Nullable
+        Node next;
+
+        @Nullable
+        QueueType type;
+
+        Node() {
+            this.key = Long.MIN_VALUE;
+            this.prev = this;
+            this.next = this;
+        }
+
+        Node(long key) {
+            this.key = key;
+        }
+
+        public void appendToTail(Node head) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public void moveToTail(Node head) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public void remove() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public String toString() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
+
+    static final class TuQueueSettings extends BasicSettings {
+
+        public TuQueueSettings(Config config) {
+            super(config);
+        }
+
+        public double percentHot() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public double percentWarm() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
 }

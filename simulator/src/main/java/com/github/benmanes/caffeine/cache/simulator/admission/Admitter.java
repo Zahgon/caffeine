@@ -27,71 +27,77 @@ import com.github.benmanes.caffeine.cache.simulator.policy.AccessEvent;
  */
 public interface Admitter {
 
-  /** Records the access to the entry. */
-  void record(AccessEvent event);
+    /**
+     * Records the access to the entry.
+     */
+    void record(AccessEvent event);
 
-  /** Records the access to the entry. */
-  default void record(long key) {
-    record(AccessEvent.forKey(key));
-  }
-
-  /**
-   * Returns if the candidate should be added to the cache and the page replacement policy's chosen
-   * victim should be removed.
-   *
-   * @param candidate the event of the newly added entry
-   * @param victim the event of the entry the policy recommends removing
-   * @return if the candidate should be added and the victim removed due to eviction
-   */
-  boolean admit(AccessEvent candidate, AccessEvent victim);
-
-  /**
-   * Returns if the candidate should be added to the cache and the page replacement policy's chosen
-   * victim should be removed.
-   *
-   * @param candidateKey the key to the newly added entry
-   * @param victimKey the key to the entry the policy recommends removing
-   * @return if the candidate should be added and the victim removed due to eviction
-   */
-  default boolean admit(long candidateKey, long victimKey) {
-    return admit(AccessEvent.forKey(candidateKey), AccessEvent.forKey(victimKey));
-  }
-
-  /** Returns an admitter that admits every candidate. */
-  static Admitter always() {
-    return AlwaysAdmit.INSTANCE;
-  }
-
-  /** An admission policy that does not exploit external event metadata. */
-  interface KeyOnlyAdmitter extends Admitter {
-
-    @Override
-    void record(long key);
-
-    @Override
-    boolean admit(long candidateKey, long victimKey);
-
-    @Override
-    default void record(AccessEvent event) {
-      record(event.key());
+    default void record(long key) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
-    @Override
-    default boolean admit(AccessEvent candidate, AccessEvent victim) {
-      return admit(candidate.key(), victim.key());
+    /**
+     * Returns if the candidate should be added to the cache and the page replacement policy's chosen
+     * victim should be removed.
+     *
+     * @param candidate the event of the newly added entry
+     * @param victim the event of the entry the policy recommends removing
+     * @return if the candidate should be added and the victim removed due to eviction
+     */
+    boolean admit(AccessEvent candidate, AccessEvent victim);
+
+    default boolean admit(long candidateKey, long victimKey) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
+
+    static Admitter always() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    /**
+     * An admission policy that does not exploit external event metadata.
+     */
+    interface KeyOnlyAdmitter extends Admitter {
+
+        @Override
+        void record(long key);
+
+        @Override
+        boolean admit(long candidateKey, long victimKey);
+
+        @Override
+        default void record(AccessEvent event) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        default boolean admit(AccessEvent candidate, AccessEvent victim) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
 }
 
 enum AlwaysAdmit implements Admitter {
-  INSTANCE;
 
-  @Override public void record(long key) {}
-  @Override public void record(AccessEvent event) {}
-  @Override public boolean admit(long candidateKey, long victimKey) {
-    return true;
-  }
-  @Override public boolean admit(AccessEvent candidate, AccessEvent victim) {
-    return true;
-  }
+    INSTANCE;
+
+    @Override
+    public void record(long key) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public void record(AccessEvent event) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public boolean admit(long candidateKey, long victimKey) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public boolean admit(AccessEvent candidate, AccessEvent victim) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

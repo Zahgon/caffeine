@@ -19,7 +19,6 @@ import java.math.RoundingMode;
 import java.util.Set;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
-
 import com.github.benmanes.caffeine.cache.simulator.parser.TextTraceReader;
 import com.github.benmanes.caffeine.cache.simulator.policy.AccessEvent;
 import com.github.benmanes.caffeine.cache.simulator.policy.Policy.Characteristic;
@@ -33,31 +32,20 @@ import com.google.common.math.IntMath;
  * @author himelbrand@gmail.com (Omri Himelbrand)
  */
 public final class SystorTraceReader extends TextTraceReader {
-  static final int BLOCK_SIZE = 512;
 
-  public SystorTraceReader(String filePath) {
-    super(filePath);
-  }
+    static final int BLOCK_SIZE = 512;
 
-  @Override
-  public Set<Characteristic> characteristics() {
-    return Set.of();
-  }
+    public SystorTraceReader(String filePath) {
+        super(filePath);
+    }
 
-  @Override
-  public Stream<AccessEvent> events() {
-    return lines()
-        .map(line -> line.split(","))
-        .filter(array -> array.length == 6)
-        .filter(array -> !array[1].isEmpty())
-        .filter(array -> array[2].equals("R"))
-        .flatMap(array -> {
-          int size = Integer.parseInt(array[5]);
-          long offset = Long.parseLong(array[4]);
-          double responseTime = 1000 * Double.parseDouble(array[1]);
-          int sequence = IntMath.divide(size, BLOCK_SIZE, RoundingMode.UP);
-          return LongStream.range(offset, offset + sequence)
-              .mapToObj(key -> AccessEvent.forKeyAndPenalties(key, 0, responseTime));
-        });
-  }
+    @Override
+    public Set<Characteristic> characteristics() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public Stream<AccessEvent> events() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

@@ -20,31 +20,22 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.stats.CacheStats;
 
 public final class Application {
-  private final Cache<Integer, Integer> cache;
 
-  public Application(int maximumSize) {
-    cache = Caffeine.newBuilder()
-        .maximumSize(maximumSize)
-        .executor(Runnable::run)
-        .recordStats()
-        .build();
-  }
+    private final Cache<Integer, Integer> cache;
 
-  public void run(int iterations, int modulus) {
-    for (int i = 0; i < iterations; i++) {
-      cache.get(i % modulus, key -> key);
+    public Application(int maximumSize) {
+        cache = Caffeine.newBuilder().maximumSize(maximumSize).executor(Runnable::run).recordStats().build();
     }
-  }
 
-  public CacheStats stats() {
-    return cache.stats();
-  }
+    public void run(int iterations, int modulus) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  public static void main(String[] args) {
-    var app = new Application(500);
-    app.run(1_000_000, 1_000);
+    public CacheStats stats() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-    System.out.println("Caffeine " + Caffeine.class.getPackage().getImplementationVersion());
-    System.out.println(app.stats());
-  }
+    public static void main(String[] args) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

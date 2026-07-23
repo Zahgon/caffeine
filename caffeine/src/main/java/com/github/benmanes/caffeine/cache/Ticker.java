@@ -27,44 +27,38 @@ import org.jspecify.annotations.NullMarked;
 @FunctionalInterface
 public interface Ticker {
 
-  /**
-   * Returns the number of nanoseconds elapsed since this ticker's fixed point of reference.
-   *
-   * @return the number of nanoseconds elapsed since this ticker's fixed point of reference
-   */
-  long read();
+    /**
+     * Returns the number of nanoseconds elapsed since this ticker's fixed point of reference.
+     *
+     * @return the number of nanoseconds elapsed since this ticker's fixed point of reference
+     */
+    long read();
 
-  /**
-   * Returns a ticker that reads the current time using {@link System#nanoTime}.
-   *
-   * @return a ticker that reads the current time using {@link System#nanoTime}
-   */
-  static Ticker systemTicker() {
-    return SystemTicker.INSTANCE;
-  }
+    static Ticker systemTicker() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  /**
-   * Returns a ticker that always returns {@code 0}.
-   *
-   * @return a ticker that always returns {@code 0}
-   */
-  static Ticker disabledTicker() {
-    return DisabledTicker.INSTANCE;
-  }
+    static Ticker disabledTicker() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }
 
 enum SystemTicker implements Ticker {
-  INSTANCE;
 
-  @Override public long read() {
-    return System.nanoTime();
-  }
+    INSTANCE;
+
+    @Override
+    public long read() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }
 
 enum DisabledTicker implements Ticker {
-  INSTANCE;
 
-  @Override public long read() {
-    return 0L;
-  }
+    INSTANCE;
+
+    @Override
+    public long read() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

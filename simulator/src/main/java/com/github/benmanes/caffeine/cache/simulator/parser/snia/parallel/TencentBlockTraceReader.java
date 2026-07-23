@@ -16,7 +16,6 @@
 package com.github.benmanes.caffeine.cache.simulator.parser.snia.parallel;
 
 import java.util.stream.LongStream;
-
 import com.github.benmanes.caffeine.cache.simulator.parser.TextTraceReader;
 import com.github.benmanes.caffeine.cache.simulator.parser.TraceReader.KeyOnlyTraceReader;
 
@@ -27,25 +26,17 @@ import com.github.benmanes.caffeine.cache.simulator.parser.TraceReader.KeyOnlyTr
  * @author ben.manes@gmail.com (Ben Manes)
  */
 public final class TencentBlockTraceReader extends TextTraceReader implements KeyOnlyTraceReader {
-  static final int BLOCK_SIZE = 512;
-  static final char READ = '0';
 
-  public TencentBlockTraceReader(String filePath) {
-    super(filePath);
-  }
+    static final int BLOCK_SIZE = 512;
 
-  @Override
-  public LongStream keys() {
-    return lines()
-        .map(line -> line.split(","))
-        .filter(array -> array[3].charAt(0) == READ)
-        .flatMapToLong(array -> {
-          long offset = Long.parseLong(array[1]);
-          long startBlock = (offset / BLOCK_SIZE);
-          int sequence = Integer.parseInt(array[2]);
-          int volumeId = Integer.parseInt(array[4]);
-          long key = (((long) volumeId) << 31) | Long.hashCode(startBlock);
-          return LongStream.range(key, key + sequence);
-        });
-  }
+    static final char READ = '0';
+
+    public TencentBlockTraceReader(String filePath) {
+        super(filePath);
+    }
+
+    @Override
+    public LongStream keys() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

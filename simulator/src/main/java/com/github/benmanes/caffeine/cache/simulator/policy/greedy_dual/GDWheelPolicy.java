@@ -18,9 +18,7 @@ package com.github.benmanes.caffeine.cache.simulator.policy.greedy_dual;
 import static com.github.benmanes.caffeine.cache.simulator.policy.Policy.Characteristic.WEIGHTED;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
-
 import org.jspecify.annotations.Nullable;
-
 import com.github.benmanes.caffeine.cache.simulator.BasicSettings;
 import com.github.benmanes.caffeine.cache.simulator.policy.AccessEvent;
 import com.github.benmanes.caffeine.cache.simulator.policy.Policy;
@@ -29,7 +27,6 @@ import com.github.benmanes.caffeine.cache.simulator.policy.PolicyStats;
 import com.google.common.base.MoreObjects;
 import com.google.errorprone.annotations.Var;
 import com.typesafe.config.Config;
-
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 
@@ -48,253 +45,224 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 @SuppressWarnings("IdentifierName")
 @PolicySpec(name = "greedy-dual.GDWheel", characteristics = WEIGHTED)
 public final class GDWheelPolicy implements Policy {
-  private final Long2ObjectMap<Node> data;
-  private final PolicyStats policyStats;
-  private final Sentinel[][] wheel;
-  private final long maximumSize;
-  private final int[] clockHand;
-  private final double[] cost;
 
-  private int size;
+    private final Long2ObjectMap<Node> data;
 
-  public GDWheelPolicy(Config config) {
-    var settings = new GDWheelSettings(config);
-    this.maximumSize = settings.maximumSize();
-    this.policyStats = new PolicyStats(name());
-    this.data = new Long2ObjectOpenHashMap<>();
-    this.cost = new double[settings.numberOfWheels()];
-    this.clockHand = new int[settings.numberOfWheels()];
-    this.wheel = new Sentinel[settings.numberOfWheels()][settings.numberOfQueues()];
+    private final PolicyStats policyStats;
 
-    for (int i = 0; i < settings.numberOfWheels(); i++) {
-      for (int j = 0; j < settings.numberOfQueues(); j++) {
-        wheel[i][j] = new Sentinel(i, j);
-      }
-      cost[i] = Math.pow(settings.numberOfQueues(), i);
-    }
-  }
+    private final Sentinel[][] wheel;
 
-  @Override
-  public void record(AccessEvent event) {
-    @Var @Nullable Node node = data.get(event.key());
-    policyStats.recordOperation();
-    if (node == null) {
-      policyStats.recordWeightedMiss(event.weight());
-      node = new Node(event.key());
-      onMiss(event, node);
-    } else {
-      policyStats.recordWeightedHit(event.weight());
-      onHit(event, node);
-    }
-  }
+    private final long maximumSize;
 
-  private void onMiss(AccessEvent event, Node node) {
-    if (event.weight() > maximumSize) {
-      policyStats.recordEviction();
-    } else {
-      evict(event);
-      add(event, node);
-    }
-  }
+    private final int[] clockHand;
 
-  private void evict(AccessEvent event) {
-    // while there is not enough room in memory for p
-    while ((size + event.weight()) > maximumSize) {
-      // C[1] ← index of next non-empty queue in level 1 Cost Wheel
-      int hand = findNextQueue();
-      if (hand >= 0) {
-        // Evict q at the tail of the C[1]th queue in level 1 Cost Wheel
-        var victim = requireNonNull(wheel[0][hand].prev);
-        policyStats.recordEviction();
-        remove(victim);
-      } else {
-        // if C[1] has advanced a whole round back to 1, call migration(2)
-        migrate(1);
-      }
-    }
-  }
+    private final double[] cost;
 
-  /** Returns the index to the next non-empty queue, or -1 if all are empty. */
-  private int findNextQueue() {
-    for (int i = 0; i < wheel[0].length; i++) {
-      int index = (clockHand[0] + i) % wheel[0].length;
-      if (!wheel[0][index].isEmpty()) {
-        return index;
-      }
-    }
-    return -1;
-  }
+    private int size;
 
-  @SuppressWarnings("Varifier")
-  private void migrate(int level) {
-    // C[idx] ← (C[idx] + 1) mod NQ
-    int hand = (clockHand[level] + 1) % wheel[level].length;
-    clockHand[level] = hand;
-
-    // if C[idx] has advanced a whole round back to 1, call migration(idx+1)
-    if ((hand == 0) && (level + 1 < wheel.length)) {
-      migrate(level + 1);
-    }
-
-    // For each object p in the C[idx]th queue in the level idx Cost Wheel
-    for (int i = 0; i < wheel[level].length; i++) {
-      var sentinel = wheel[level][hand];
-      if (!sentinel.isEmpty()) {
-        // Remove p
-        var node = requireNonNull(sentinel.next);
-        node.remove();
-
-        // Cost Remainder ← c(p) mod NQ^(idx-1)
-        double remainder = (node.cost % cost[level]);
-
-        // Q ← (round(Cost Remainder / NQ^(idx-2)) + C[idx-1]) mod NQ
-        int index = (int) ((Math.round(remainder / cost[level - 1]) + hand) % wheel[level].length);
-
-        // Insert p to the head of Qth queue in the level (idx−1) Cost Wheel
-        wheel[level - 1][index].appendToHead(node);
-      }
-    }
-  }
-
-  private void onHit(AccessEvent event, Node node) {
-    remove(node);
-    onMiss(event, node);
-  }
-
-  private void remove(Node node) {
-    data.remove(node.key);
-    size -= node.weight;
-    node.remove();
-  }
-
-  @SuppressWarnings("Varifier")
-  private void add(AccessEvent event, Node node) {
-    // W ← max { i | 0 < i ≤ NW and round(c(p) / NQ^(i-1)) > 0 }
-    @Var int wheelHand = 0;
-    @Var int wheelIndex = 0;
-    @Var long relativeCost = 0;
-    for (int i = 0; i < wheel.length; i++) {
-      long penalty = Math.round(event.missPenalty() / cost[i]);
-      if (penalty > 0) {
-        wheelHand = clockHand[i];
-        relativeCost = penalty;
-        wheelIndex = i;
-      }
-    }
-
-    // Q ← (round( c(p) / NQ^(W-1) ) + C[W]) mod NQ
-    int queueIndex = (int) ((relativeCost + wheelHand) % wheel.length);
-    var sentinel = wheel[wheelIndex][queueIndex];
-
-    // Insert p to the head of Qth queue in the level W Cost Wheel
-    node.cost = event.missPenalty();
-    node.weight = event.weight();
-    sentinel.appendToHead(node);
-    data.put(event.key(), node);
-    size += event.weight();
-  }
-
-  @Override
-  public void finished() {
-    int expectedSize = data.values().stream().mapToInt(node -> node.weight).sum();
-    checkState(data.size() <= maximumSize, "%s > %s", data.size(), maximumSize);
-    checkState(size == expectedSize, "%s != %s", size, expectedSize);
-
-    @Var int nodes = 0;
-    for (var costWheel : wheel) {
-      for (var sentinel : costWheel) {
-        @Var Node next = sentinel.next;
-        while (next != sentinel) {
-          next = requireNonNull(next).next;
-          nodes++;
+    public GDWheelPolicy(Config config) {
+        var settings = new GDWheelSettings(config);
+        this.maximumSize = settings.maximumSize();
+        this.policyStats = new PolicyStats(name());
+        this.data = new Long2ObjectOpenHashMap<>();
+        this.cost = new double[settings.numberOfWheels()];
+        this.clockHand = new int[settings.numberOfWheels()];
+        this.wheel = new Sentinel[settings.numberOfWheels()][settings.numberOfQueues()];
+        for (int i = 0; i < settings.numberOfWheels(); i++) {
+            for (int j = 0; j < settings.numberOfQueues(); j++) {
+                wheel[i][j] = new Sentinel(i, j);
+            }
+            cost[i] = Math.pow(settings.numberOfQueues(), i);
         }
-      }
-    }
-    checkState(nodes == data.size(), "%s != %s", size, expectedSize);
-  }
-
-  @Override
-  public PolicyStats stats() {
-    return policyStats;
-  }
-
-  static final class Sentinel extends Node {
-    final int wheelIndex;
-    final int queueIndex;
-
-    public Sentinel(int wheelIndex, int queueIndex) {
-      super(Long.MIN_VALUE);
-      this.wheelIndex = wheelIndex;
-      this.queueIndex = queueIndex;
-      prev = next = this;
-    }
-
-    /** Returns if the queue is empty. */
-    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
-    public boolean isEmpty() {
-      return (next == this);
-    }
-
-    /** Appends the node to the head of the list. */
-    public void appendToHead(Node node) {
-      requireNonNull(next);
-      node.prev = this;
-      node.next = next;
-      next.prev = node;
-      next = node;
     }
 
     @Override
-    public String toString() {
-      return MoreObjects.toStringHelper(this)
-          .add("wheelIndex", wheelIndex)
-          .add("queueIndex", queueIndex)
-          .toString();
-    }
-  }
-
-  static class Node {
-    final long key;
-
-    double cost;
-    int weight;
-
-    @Nullable Node prev;
-    @Nullable Node next;
-
-    public Node(long key) {
-      this.key = key;
+    public void record(AccessEvent event) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
-    /** Removes the node from the list. */
-    public void remove() {
-      checkState(!(this instanceof Sentinel));
-      requireNonNull(prev);
-      requireNonNull(next);
-      prev.next = next;
-      next.prev = prev;
-      prev = next = null;
+    private void onMiss(AccessEvent event, Node node) {
+        if (event.weight() > maximumSize) {
+            policyStats.recordEviction();
+        } else {
+            evict(event);
+            add(event, node);
+        }
+    }
+
+    private void evict(AccessEvent event) {
+        // while there is not enough room in memory for p
+        while ((size + event.weight()) > maximumSize) {
+            // C[1] ← index of next non-empty queue in level 1 Cost Wheel
+            int hand = findNextQueue();
+            if (hand >= 0) {
+                // Evict q at the tail of the C[1]th queue in level 1 Cost Wheel
+                var victim = requireNonNull(wheel[0][hand].prev);
+                policyStats.recordEviction();
+                remove(victim);
+            } else {
+                // if C[1] has advanced a whole round back to 1, call migration(2)
+                migrate(1);
+            }
+        }
+    }
+
+    /**
+     * Returns the index to the next non-empty queue, or -1 if all are empty.
+     */
+    private int findNextQueue() {
+        for (int i = 0; i < wheel[0].length; i++) {
+            int index = (clockHand[0] + i) % wheel[0].length;
+            if (!wheel[0][index].isEmpty()) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    @SuppressWarnings("Varifier")
+    private void migrate(int level) {
+        // C[idx] ← (C[idx] + 1) mod NQ
+        int hand = (clockHand[level] + 1) % wheel[level].length;
+        clockHand[level] = hand;
+        // if C[idx] has advanced a whole round back to 1, call migration(idx+1)
+        if ((hand == 0) && (level + 1 < wheel.length)) {
+            migrate(level + 1);
+        }
+        // For each object p in the C[idx]th queue in the level idx Cost Wheel
+        for (int i = 0; i < wheel[level].length; i++) {
+            var sentinel = wheel[level][hand];
+            if (!sentinel.isEmpty()) {
+                // Remove p
+                var node = requireNonNull(sentinel.next);
+                node.remove();
+                // Cost Remainder ← c(p) mod NQ^(idx-1)
+                double remainder = (node.cost % cost[level]);
+                // Q ← (round(Cost Remainder / NQ^(idx-2)) + C[idx-1]) mod NQ
+                int index = (int) ((Math.round(remainder / cost[level - 1]) + hand) % wheel[level].length);
+                // Insert p to the head of Qth queue in the level (idx−1) Cost Wheel
+                wheel[level - 1][index].appendToHead(node);
+            }
+        }
+    }
+
+    private void onHit(AccessEvent event, Node node) {
+        remove(node);
+        onMiss(event, node);
+    }
+
+    private void remove(Node node) {
+        data.remove(node.key);
+        size -= node.weight;
+        node.remove();
+    }
+
+    @SuppressWarnings("Varifier")
+    private void add(AccessEvent event, Node node) {
+        // W ← max { i | 0 < i ≤ NW and round(c(p) / NQ^(i-1)) > 0 }
+        @Var
+        int wheelHand = 0;
+        @Var
+        int wheelIndex = 0;
+        @Var
+        long relativeCost = 0;
+        for (int i = 0; i < wheel.length; i++) {
+            long penalty = Math.round(event.missPenalty() / cost[i]);
+            if (penalty > 0) {
+                wheelHand = clockHand[i];
+                relativeCost = penalty;
+                wheelIndex = i;
+            }
+        }
+        // Q ← (round( c(p) / NQ^(W-1) ) + C[W]) mod NQ
+        int queueIndex = (int) ((relativeCost + wheelHand) % wheel.length);
+        var sentinel = wheel[wheelIndex][queueIndex];
+        // Insert p to the head of Qth queue in the level W Cost Wheel
+        node.cost = event.missPenalty();
+        node.weight = event.weight();
+        sentinel.appendToHead(node);
+        data.put(event.key(), node);
+        size += event.weight();
     }
 
     @Override
-    public String toString() {
-      return MoreObjects.toStringHelper(this)
-          .add("key", key)
-          .add("cost", cost)
-          .add("weight", weight)
-          .toString();
+    public void finished() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  static final class GDWheelSettings extends BasicSettings {
-    public GDWheelSettings(Config config) {
-      super(config);
+    @Override
+    public PolicyStats stats() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    public int numberOfWheels() {
-      return config().getInt("gd-wheel.wheels");
+
+    static final class Sentinel extends Node {
+
+        final int wheelIndex;
+
+        final int queueIndex;
+
+        public Sentinel(int wheelIndex, int queueIndex) {
+            super(Long.MIN_VALUE);
+            this.wheelIndex = wheelIndex;
+            this.queueIndex = queueIndex;
+            prev = next = this;
+        }
+
+        @SuppressWarnings("BooleanMethodIsAlwaysInverted")
+        public boolean isEmpty() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public void appendToHead(Node node) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public String toString() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
     }
-    public int numberOfQueues() {
-      return config().getInt("gd-wheel.queues");
+
+    static class Node {
+
+        final long key;
+
+        double cost;
+
+        int weight;
+
+        @Nullable
+        Node prev;
+
+        @Nullable
+        Node next;
+
+        public Node(long key) {
+            this.key = key;
+        }
+
+        public void remove() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public String toString() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
     }
-  }
+
+    static final class GDWheelSettings extends BasicSettings {
+
+        public GDWheelSettings(Config config) {
+            super(config);
+        }
+
+        public int numberOfWheels() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public int numberOfQueues() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
 }

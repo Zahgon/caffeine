@@ -22,12 +22,17 @@ package com.github.benmanes.caffeine.cache.simulator.admission;
  */
 public interface Frequency {
 
-  /** Returns the estimated number of times the element was seen. */
-  int frequency(long e);
+    /**
+     * Returns the estimated number of times the element was seen.
+     */
+    int frequency(long e);
 
-  /** Increments the popularity of the element. */
-  void increment(long e);
+    /**
+     * Increments the popularity of the element.
+     */
+    void increment(long e);
 
-  /** Feedback to allow for adaptability. */
-  default void reportMiss() {}
+    default void reportMiss() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

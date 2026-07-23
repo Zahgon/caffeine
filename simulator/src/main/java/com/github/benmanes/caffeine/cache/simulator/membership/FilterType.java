@@ -16,7 +16,6 @@
 package com.github.benmanes.caffeine.cache.simulator.membership;
 
 import java.util.function.Function;
-
 import com.github.benmanes.caffeine.cache.simulator.membership.bloom.BloomFilter;
 import com.github.benmanes.caffeine.cache.simulator.membership.bloom.FastFilter;
 import com.github.benmanes.caffeine.cache.simulator.membership.bloom.GuavaBloomFilter;
@@ -29,17 +28,16 @@ import com.typesafe.config.Config;
  */
 @SuppressWarnings("ImmutableEnumChecker")
 public enum FilterType {
-  CAFFEINE(BloomFilter::new),
-  FAST_FILTER(FastFilter::new),
-  GUAVA(GuavaBloomFilter::new);
 
-  private final Function<Config, Membership> factory;
+    CAFFEINE(BloomFilter::new), FAST_FILTER(FastFilter::new), GUAVA(GuavaBloomFilter::new);
 
-  FilterType(Function<Config, Membership> factory) {
-    this.factory = factory;
-  }
+    private final Function<Config, Membership> factory;
 
-  public Membership create(Config config) {
-    return factory.apply(config);
-  }
+    FilterType(Function<Config, Membership> factory) {
+        this.factory = factory;
+    }
+
+    public Membership create(Config config) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

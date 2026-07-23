@@ -16,9 +16,7 @@
 package com.github.benmanes.caffeine.cache.stats;
 
 import java.util.Map;
-
 import org.jspecify.annotations.NullMarked;
-
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.RemovalCause;
 
@@ -31,87 +29,73 @@ import com.github.benmanes.caffeine.cache.RemovalCause;
 @NullMarked
 public interface StatsCounter {
 
-  /**
-   * Records cache hits. This should be called when a cache request returns a cached value.
-   *
-   * @param count the number of hits to record
-   */
-  void recordHits(int count);
+    /**
+     * Records cache hits. This should be called when a cache request returns a cached value.
+     *
+     * @param count the number of hits to record
+     */
+    void recordHits(int count);
 
-  /**
-   * Records cache misses. This should be called when a cache request returns a value that was not
-   * found in the cache. This method should be called by the loading thread and by threads blocking
-   * on the load. Multiple concurrent calls to {@link Cache} lookup methods with the same key on an
-   * absent value should result in a single call to either {@code recordLoadSuccess} or
-   * {@code recordLoadFailure} and multiple calls to this method, despite all being served by the
-   * results of a single load operation.
-   *
-   * @param count the number of misses to record
-   */
-  void recordMisses(int count);
+    /**
+     * Records cache misses. This should be called when a cache request returns a value that was not
+     * found in the cache. This method should be called by the loading thread and by threads blocking
+     * on the load. Multiple concurrent calls to {@link Cache} lookup methods with the same key on an
+     * absent value should result in a single call to either {@code recordLoadSuccess} or
+     * {@code recordLoadFailure} and multiple calls to this method, despite all being served by the
+     * results of a single load operation.
+     *
+     * @param count the number of misses to record
+     */
+    void recordMisses(int count);
 
-  /**
-   * Records the successful load of a new entry. This method should be called when a cache request
-   * causes an entry to be loaded (such as by {@link Cache#get} or {@link Map#computeIfAbsent}) and
-   * the loading completes successfully. In contrast to {@link #recordMisses}, this method should
-   * only be called by the loading thread.
-   *
-   * @param loadTime the number of nanoseconds the cache spent computing or retrieving the new value
-   */
-  void recordLoadSuccess(long loadTime);
+    /**
+     * Records the successful load of a new entry. This method should be called when a cache request
+     * causes an entry to be loaded (such as by {@link Cache#get} or {@link Map#computeIfAbsent}) and
+     * the loading completes successfully. In contrast to {@link #recordMisses}, this method should
+     * only be called by the loading thread.
+     *
+     * @param loadTime the number of nanoseconds the cache spent computing or retrieving the new value
+     */
+    void recordLoadSuccess(long loadTime);
 
-  /**
-   * Records the failed load of a new entry. This method should be called when a cache request
-   * causes an entry to be loaded (such as by {@link Cache#get} or {@link Map#computeIfAbsent}), but
-   * an exception is thrown while loading the entry or the loading function returns null. In
-   * contrast to {@link #recordMisses}, this method should only be called by the loading thread.
-   *
-   * @param loadTime the number of nanoseconds the cache spent computing or retrieving the new value
-   *        prior to discovering the value doesn't exist or an exception being thrown
-   */
-  void recordLoadFailure(long loadTime);
+    /**
+     * Records the failed load of a new entry. This method should be called when a cache request
+     * causes an entry to be loaded (such as by {@link Cache#get} or {@link Map#computeIfAbsent}), but
+     * an exception is thrown while loading the entry or the loading function returns null. In
+     * contrast to {@link #recordMisses}, this method should only be called by the loading thread.
+     *
+     * @param loadTime the number of nanoseconds the cache spent computing or retrieving the new value
+     *        prior to discovering the value doesn't exist or an exception being thrown
+     */
+    void recordLoadFailure(long loadTime);
 
-  /**
-   * Records the eviction of an entry from the cache. This should only been called when an entry is
-   * evicted due to the cache's eviction strategy, and not as a result of manual
-   * {@link Cache#invalidate invalidations}.
-   *
-   * @param weight the weight of the evicted entry
-   * @param cause the reason for which the entry was removed
-   */
-  void recordEviction(int weight, RemovalCause cause);
+    /**
+     * Records the eviction of an entry from the cache. This should only been called when an entry is
+     * evicted due to the cache's eviction strategy, and not as a result of manual
+     * {@link Cache#invalidate invalidations}.
+     *
+     * @param weight the weight of the evicted entry
+     * @param cause the reason for which the entry was removed
+     */
+    void recordEviction(int weight, RemovalCause cause);
 
-  /**
-   * Returns a snapshot of this counter's values. Note that this may be an inconsistent view, as it
-   * may be interleaved with update operations.
-   * <p>
-   * <b>Note:</b> the values of the metrics are undefined in case of overflow (though it is
-   * guaranteed not to throw an exception). If you require specific handling, we recommend
-   * implementing your own stats collector.
-   *
-   * @return a snapshot of this counter's values
-   */
-  CacheStats snapshot();
+    /**
+     * Returns a snapshot of this counter's values. Note that this may be an inconsistent view, as it
+     * may be interleaved with update operations.
+     * <p>
+     * <b>Note:</b> the values of the metrics are undefined in case of overflow (though it is
+     * guaranteed not to throw an exception). If you require specific handling, we recommend
+     * implementing your own stats collector.
+     *
+     * @return a snapshot of this counter's values
+     */
+    CacheStats snapshot();
 
-  /**
-   * Returns an accumulator that does not record any cache events.
-   *
-   * @return an accumulator that does not record metrics
-   */
-  static StatsCounter disabledStatsCounter() {
-    return DisabledStatsCounter.INSTANCE;
-  }
+    static StatsCounter disabledStatsCounter() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  /**
-   * Returns an accumulator that suppresses and logs any exception thrown by the delegate
-   * {@code statsCounter}.
-   *
-   * @param statsCounter the accumulator to delegate to
-   * @return an accumulator that suppresses and logs any exception thrown by the delegate
-   */
-  static StatsCounter guardedStatsCounter(StatsCounter statsCounter) {
-    return (statsCounter instanceof GuardedStatsCounter)
-        ? statsCounter
-        : new GuardedStatsCounter(statsCounter);
-  }
+    static StatsCounter guardedStatsCounter(StatsCounter statsCounter) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

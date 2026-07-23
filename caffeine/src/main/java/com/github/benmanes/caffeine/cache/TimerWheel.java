@@ -17,15 +17,12 @@ package com.github.benmanes.caffeine.cache;
 
 import static com.github.benmanes.caffeine.cache.Caffeine.ceilingPowerOfTwo;
 import static java.util.Objects.requireNonNull;
-
 import java.lang.ref.ReferenceQueue;
 import java.util.ConcurrentModificationException;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.concurrent.TimeUnit;
-
 import org.jspecify.annotations.Nullable;
-
 import com.google.errorprone.annotations.Var;
 
 /**
@@ -38,7 +35,7 @@ import com.google.errorprone.annotations.Var;
 @SuppressWarnings("GuardedBy")
 final class TimerWheel<K, V> implements Iterable<Node<K, V>> {
 
-  /*
+    /*
    * A timer wheel [1] stores timer events in buckets on a circular buffer. A bucket represents a
    * coarse time span, e.g. one minute, and holds a doubly-linked list of events. The wheels are
    * structured in a hierarchy (seconds, minutes, hours, days) so that events scheduled in the
@@ -49,436 +46,321 @@ final class TimerWheel<K, V> implements Iterable<Node<K, V>> {
    * [1] Hashed and Hierarchical Timing Wheels
    * http://www.cs.columbia.edu/~nahum/w6998/papers/ton97-timing-wheels.pdf
    */
+    static final int[] BUCKETS = { 64, 64, 32, 4, 1 };
 
-  static final int[] BUCKETS = { 64, 64, 32, 4, 1 };
-  static final long[] SPANS = {
-      ceilingPowerOfTwo(TimeUnit.SECONDS.toNanos(1)), // 1.07s
-      ceilingPowerOfTwo(TimeUnit.MINUTES.toNanos(1)), // 1.14m
-      ceilingPowerOfTwo(TimeUnit.HOURS.toNanos(1)),   // 1.22h
-      ceilingPowerOfTwo(TimeUnit.DAYS.toNanos(1)),    // 1.63d
-      BUCKETS[3] * ceilingPowerOfTwo(TimeUnit.DAYS.toNanos(1)), // 6.5d
-      BUCKETS[3] * ceilingPowerOfTwo(TimeUnit.DAYS.toNanos(1)), // 6.5d
-  };
-  static final long[] SHIFT = {
-      Long.numberOfTrailingZeros(SPANS[0]),
-      Long.numberOfTrailingZeros(SPANS[1]),
-      Long.numberOfTrailingZeros(SPANS[2]),
-      Long.numberOfTrailingZeros(SPANS[3]),
-      Long.numberOfTrailingZeros(SPANS[4]),
-  };
+    static final long[] SPANS = { // 1.07s
+    ceilingPowerOfTwo(TimeUnit.SECONDS.toNanos(1)), // 1.14m
+    ceilingPowerOfTwo(TimeUnit.MINUTES.toNanos(1)), // 1.22h
+    ceilingPowerOfTwo(TimeUnit.HOURS.toNanos(1)), // 1.63d
+    ceilingPowerOfTwo(TimeUnit.DAYS.toNanos(1)), // 6.5d
+    BUCKETS[3] * ceilingPowerOfTwo(TimeUnit.DAYS.toNanos(1)), // 6.5d
+    BUCKETS[3] * ceilingPowerOfTwo(TimeUnit.DAYS.toNanos(1)) };
 
-  final Node<K, V>[][] wheel;
+    static final long[] SHIFT = { Long.numberOfTrailingZeros(SPANS[0]), Long.numberOfTrailingZeros(SPANS[1]), Long.numberOfTrailingZeros(SPANS[2]), Long.numberOfTrailingZeros(SPANS[3]), Long.numberOfTrailingZeros(SPANS[4]) };
 
-  long nanos;
+    final Node<K, V>[][] wheel;
 
-  @SuppressWarnings({"rawtypes", "unchecked"})
-  TimerWheel() {
-    wheel = new Node[BUCKETS.length][];
-    for (int i = 0; i < wheel.length; i++) {
-      wheel[i] = new Node[BUCKETS[i]];
-      for (int j = 0; j < wheel[i].length; j++) {
-        wheel[i][j] = new Sentinel<>();
-      }
-    }
-  }
+    long nanos;
 
-  /**
-   * Advances the timer and evicts entries that have expired.
-   *
-   * @param cache the instance that the entries belong to
-   * @param currentTimeNanos the current time, in nanoseconds
-   */
-  public void advance(BoundedLocalCache<K, V> cache, long currentTimeNanos) {
-    long previousTimeNanos = nanos;
-    nanos = currentTimeNanos;
-
-    // If wrapping from negative to non-negative then shift for the delta computation so that
-    // the unsigned tick difference is correct. The raw previousTicks is used for the bucket
-    // start to stay consistent with how schedule() places timers.
-    @Var long previousDelta = previousTimeNanos;
-    @Var long currentDelta = currentTimeNanos;
-    if ((previousTimeNanos < 0) && (currentTimeNanos >= 0)) {
-      previousDelta += Long.MAX_VALUE;
-      currentDelta += Long.MAX_VALUE;
-    }
-
-    try {
-      for (int i = 0; i < SHIFT.length; i++) {
-        long delta = ((currentDelta >>> SHIFT[i]) - (previousDelta >>> SHIFT[i]));
-        if (delta <= 0L) {
-          break;
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    TimerWheel() {
+        wheel = new Node[BUCKETS.length][];
+        for (int i = 0; i < wheel.length; i++) {
+            wheel[i] = new Node[BUCKETS[i]];
+            for (int j = 0; j < wheel[i].length; j++) {
+                wheel[i][j] = new Sentinel<>();
+            }
         }
-        long previousTicks = (previousTimeNanos >>> SHIFT[i]);
-        expire(cache, i, previousTicks, delta);
-      }
-    } catch (Throwable t) {
-      nanos = previousTimeNanos;
-      throw t;
-    }
-  }
-
-  /**
-   * Expires entries or reschedules into the proper bucket if still active.
-   *
-   * @param cache the instance that the entries belong to
-   * @param index the timing wheel being operated on
-   * @param previousTicks the previous number of ticks
-   * @param delta the number of additional ticks
-   */
-  @SuppressWarnings("Varifier")
-  void expire(BoundedLocalCache<K, V> cache, int index, long previousTicks, long delta) {
-    Node<K, V>[] timerWheel = wheel[index];
-    int mask = timerWheel.length - 1;
-
-    int steps = (int) Math.min(1 + delta, timerWheel.length);
-    int start = (int) (previousTicks & mask);
-    int end = start + steps;
-
-    for (int i = start; i < end; i++) {
-      Node<K, V> sentinel = timerWheel[i & mask];
-      Node<K, V> prev = sentinel.getPreviousInVariableOrder();
-      @Var Node<K, V> node = sentinel.getNextInVariableOrder();
-      sentinel.setPreviousInVariableOrder(sentinel);
-      sentinel.setNextInVariableOrder(sentinel);
-
-      while (node != sentinel) {
-        Node<K, V> next = node.getNextInVariableOrder();
-        node.setPreviousInVariableOrder(null);
-        node.setNextInVariableOrder(null);
-
-        try {
-          if (((node.getVariableTime() - nanos) > 0)
-              || !cache.evictEntry(node, RemovalCause.EXPIRED, nanos)) {
-            schedule(node);
-          }
-          node = next;
-        } catch (Throwable t) {
-          node.setPreviousInVariableOrder(sentinel.getPreviousInVariableOrder());
-          node.setNextInVariableOrder(next);
-          sentinel.getPreviousInVariableOrder().setNextInVariableOrder(node);
-          sentinel.setPreviousInVariableOrder(prev);
-          throw t;
-        }
-      }
-    }
-  }
-
-  /**
-   * Schedules a timer event for the node.
-   *
-   * @param node the entry in the cache
-   */
-  public void schedule(Node<K, V> node) {
-    Node<K, V> sentinel = findBucket(node.getVariableTime());
-    link(sentinel, node);
-  }
-
-  /**
-   * Reschedules an active timer event for the node.
-   *
-   * @param node the entry in the cache
-   */
-  public void reschedule(Node<K, V> node) {
-    if (node.getNextInVariableOrder() != null) {
-      unlink(node);
-      schedule(node);
-    }
-  }
-
-  /**
-   * Removes a timer event for this entry if present.
-   *
-   * @param node the entry in the cache
-   */
-  public void deschedule(Node<K, V> node) {
-    unlink(node);
-    node.setNextInVariableOrder(null);
-    node.setPreviousInVariableOrder(null);
-  }
-
-  /**
-   * Determines the bucket that the timer event should be added to.
-   *
-   * @param time the time when the event fires
-   * @return the sentinel at the head of the bucket
-   */
-  @SuppressWarnings("Varifier")
-  Node<K, V> findBucket(@Var long time) {
-    long duration = Math.max(0L, time - nanos);
-    if (duration == 0L) {
-      time = nanos;
     }
 
-    int length = wheel.length - 1;
-    for (int i = 0; i < length; i++) {
-      if (duration < SPANS[i + 1]) {
-        long ticks = (time >>> SHIFT[i]);
-        int index = (int) (ticks & (wheel[i].length - 1));
-        return wheel[i][index];
-      }
+    public void advance(BoundedLocalCache<K, V> cache, long currentTimeNanos) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    return wheel[length][0];
-  }
 
-  /** Adds the entry at the tail of the bucket's list. */
-  void link(Node<K, V> sentinel, Node<K, V> node) {
-    node.setPreviousInVariableOrder(sentinel.getPreviousInVariableOrder());
-    node.setNextInVariableOrder(sentinel);
-
-    sentinel.getPreviousInVariableOrder().setNextInVariableOrder(node);
-    sentinel.setPreviousInVariableOrder(node);
-  }
-
-  /** Removes the entry from its bucket, if scheduled. */
-  void unlink(Node<K, V> node) {
-    Node<K, V> next = node.getNextInVariableOrder();
-    if (next != null) {
-      Node<K, V> prev = node.getPreviousInVariableOrder();
-      next.setPreviousInVariableOrder(prev);
-      prev.setNextInVariableOrder(next);
+    @SuppressWarnings("Varifier")
+    void expire(BoundedLocalCache<K, V> cache, int index, long previousTicks, long delta) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  /** Returns the duration until the next bucket expires, or {@link Long#MAX_VALUE} if none. */
-  @SuppressWarnings({"IntLongMath", "Varifier"})
-  public long getExpirationDelay() {
-    for (int i = 0; i < SHIFT.length; i++) {
-      Node<K, V>[] timerWheel = wheel[i];
-      long ticks = (nanos >>> SHIFT[i]);
-
-      long spanMask = SPANS[i] - 1;
-      int mask = timerWheel.length - 1;
-      int start = (int) (ticks & mask);
-      int end = start + timerWheel.length;
-      for (int j = start; j < end; j++) {
-        Node<K, V> sentinel = timerWheel[(j & mask)];
-        Node<K, V> next = sentinel.getNextInVariableOrder();
-        if (next == sentinel) {
-          continue;
-        }
-        long buckets = (j - start);
-        @Var long delay = (buckets << SHIFT[i]) - (nanos & spanMask);
-        delay = (delay > 0) ? delay : SPANS[i];
-
-        for (int k = i + 1; k < SHIFT.length; k++) {
-          long nextDelay = peekAhead(k);
-          delay = Math.min(delay, nextDelay);
-        }
-
-        return delay;
-      }
+    public void schedule(Node<K, V> node) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    return Long.MAX_VALUE;
-  }
 
-  /**
-   * Returns the duration when the wheel's next bucket expires, or {@link Long#MAX_VALUE} if empty.
-   *
-   * @param index the timing wheel being operated on
-   */
-  @SuppressWarnings("Varifier")
-  long peekAhead(int index) {
-    long ticks = (nanos >>> SHIFT[index]);
-    Node<K, V>[] timerWheel = wheel[index];
+    public void reschedule(Node<K, V> node) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-    long spanMask = SPANS[index] - 1;
-    int mask = timerWheel.length - 1;
-    int probe = (int) ((ticks + 1) & mask);
-    Node<K, V> sentinel = timerWheel[probe];
-    Node<K, V> next = sentinel.getNextInVariableOrder();
-    return (next == sentinel) ? Long.MAX_VALUE : (SPANS[index] - (nanos & spanMask));
-  }
+    public void deschedule(Node<K, V> node) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  /**
-   * Returns an iterator roughly ordered by the expiration time from the entries most likely to
-   * expire (oldest) to the entries least likely to expire (youngest). The wheels are evaluated in
-   * order, but the timers that fall within the bucket's range are not sorted.
-   */
-  @Override
-  public Iterator<Node<K, V>> iterator() {
-    return new AscendingIterator();
-  }
+    @SuppressWarnings("Varifier")
+    Node<K, V> findBucket(@Var long time) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  /**
-   * Returns an iterator roughly ordered by the expiration time from the entries least likely to
-   * expire (youngest) to the entries most likely to expire (oldest). The wheels are evaluated in
-   * order, but the timers that fall within the bucket's range are not sorted.
-   */
-  public Iterator<Node<K, V>> descendingIterator() {
-    return new DescendingIterator();
-  }
+    void link(Node<K, V> sentinel, Node<K, V> node) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  /** An iterator with rough ordering that can be specialized for either direction. */
-  abstract class Traverser implements Iterator<Node<K, V>> {
-    final long expectedNanos;
+    void unlink(Node<K, V> node) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-    @Nullable Node<K, V> current;
-    @Nullable Node<K, V> next;
+    @SuppressWarnings({ "IntLongMath", "Varifier" })
+    public long getExpirationDelay() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-    Traverser() {
-      expectedNanos = nanos;
+    @SuppressWarnings("Varifier")
+    long peekAhead(int index) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public boolean hasNext() {
-      if (nanos != expectedNanos) {
-        throw new ConcurrentModificationException();
-      } else if (next != null) {
-        return true;
-      } else if (isDone()) {
-        return false;
-      }
-      next = computeNext();
-      return (next != null);
+    public Iterator<Node<K, V>> iterator() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
-    @Override
-    public Node<K, V> next() {
-      if (!hasNext()) {
-        throw new NoSuchElementException();
-      }
-      current = next;
-      next = null;
-      return requireNonNull(current);
+    public Iterator<Node<K, V>> descendingIterator() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
-    @Nullable Node<K, V> computeNext() {
-      @Var var node = (current == null) ? sentinel() : current;
-      for (;;) {
-        node = traverse(node);
-        if (node != sentinel()) {
-          return node;
-        } else if ((node = goToNextBucket()) != null) {
-          continue;
-        } else if ((node = goToNextWheel()) != null) {
-          continue;
+    /**
+     * An iterator with rough ordering that can be specialized for either direction.
+     */
+    abstract class Traverser implements Iterator<Node<K, V>> {
+
+        final long expectedNanos;
+
+        @Nullable
+        Node<K, V> current;
+
+        @Nullable
+        Node<K, V> next;
+
+        Traverser() {
+            expectedNanos = nanos;
         }
-        return null;
-      }
+
+        @Override
+        public boolean hasNext() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public Node<K, V> next() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Nullable
+        Node<K, V> computeNext() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        /**
+         * Returns if the iteration has completed.
+         */
+        abstract boolean isDone();
+
+        /**
+         * Returns the sentinel at the current wheel and bucket position.
+         */
+        abstract Node<K, V> sentinel();
+
+        /**
+         * Returns the node's successor, or the bucket's sentinel if at the end.
+         */
+        abstract Node<K, V> traverse(Node<K, V> node);
+
+        /**
+         * Returns the sentinel for the wheel's next bucket, or null if the wheel is exhausted.
+         */
+        @Nullable
+        abstract Node<K, V> goToNextBucket();
+
+        /**
+         * Returns the sentinel for the next wheel's bucket position, or null if no more wheels.
+         */
+        @Nullable
+        abstract Node<K, V> goToNextWheel();
     }
 
-    /** Returns if the iteration has completed. */
-    abstract boolean isDone();
+    final class AscendingIterator extends Traverser {
 
-    /** Returns the sentinel at the current wheel and bucket position. */
-    abstract Node<K, V> sentinel();
+        int wheelIndex;
 
-    /** Returns the node's successor, or the bucket's sentinel if at the end. */
-    abstract Node<K, V> traverse(Node<K, V> node);
+        int steps;
 
-    /** Returns the sentinel for the wheel's next bucket, or null if the wheel is exhausted. */
-    abstract @Nullable Node<K, V> goToNextBucket();
+        @Override
+        boolean isDone() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
 
-    /** Returns the sentinel for the next wheel's bucket position, or null if no more wheels. */
-    abstract @Nullable Node<K, V> goToNextWheel();
-  }
+        @Override
+        Node<K, V> sentinel() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
 
-  final class AscendingIterator extends Traverser {
-    int wheelIndex;
-    int steps;
+        @Override
+        Node<K, V> traverse(Node<K, V> node) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
 
-    @Override boolean isDone() {
-      return (wheelIndex == wheel.length);
-    }
-    @Override Node<K, V> sentinel() {
-      return wheel[wheelIndex][bucketIndex()];
-    }
-    @Override Node<K, V> traverse(Node<K, V> node) {
-      return node.getNextInVariableOrder();
-    }
-    @Override @Nullable Node<K, V> goToNextBucket() {
-      return (++steps < wheel[wheelIndex].length)
-          ? wheel[wheelIndex][bucketIndex()]
-          : null;
-    }
-    @Override @Nullable Node<K, V> goToNextWheel() {
-      if (++wheelIndex == wheel.length) {
-        return null;
-      }
-      steps = 0;
-      return wheel[wheelIndex][bucketIndex()];
-    }
-    int bucketIndex() {
-      @SuppressWarnings("Varifier")
-      int ticks = (int) (nanos >>> SHIFT[wheelIndex]);
-      int bucketMask = wheel[wheelIndex].length - 1;
-      int bucketOffset = (ticks & bucketMask) + 1;
-      return (bucketOffset + steps) & bucketMask;
-    }
-  }
+        @Override
+        @Nullable
+        Node<K, V> goToNextBucket() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
 
-  final class DescendingIterator extends Traverser {
-    int wheelIndex;
-    int steps;
+        @Override
+        @Nullable
+        Node<K, V> goToNextWheel() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
 
-    DescendingIterator() {
-      wheelIndex = wheel.length - 1;
-    }
-    @Override boolean isDone() {
-      return (wheelIndex == -1);
-    }
-    @Override Node<K, V> sentinel() {
-      return wheel[wheelIndex][bucketIndex()];
-    }
-    @Override @Nullable Node<K, V> goToNextBucket() {
-      return (++steps < wheel[wheelIndex].length)
-          ? wheel[wheelIndex][bucketIndex()]
-          : null;
-    }
-    @Override @Nullable Node<K, V> goToNextWheel() {
-      if (--wheelIndex < 0) {
-        return null;
-      }
-      steps = 0;
-      return wheel[wheelIndex][bucketIndex()];
-    }
-    @Override Node<K, V> traverse(Node<K, V> node) {
-      return node.getPreviousInVariableOrder();
-    }
-    int bucketIndex() {
-      @SuppressWarnings("Varifier")
-      int ticks = (int) (nanos >>> SHIFT[wheelIndex]);
-      int bucketMask = wheel[wheelIndex].length - 1;
-      int bucketOffset = (ticks & bucketMask);
-      return (bucketOffset - steps) & bucketMask;
-    }
-  }
-
-  /** A sentinel for the doubly-linked list in the bucket. */
-  static final class Sentinel<K, V> extends Node<K, V> {
-    Node<K, V> prev;
-    Node<K, V> next;
-
-    Sentinel() {
-      prev = next = this;
+        int bucketIndex() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
     }
 
-    @Override public Node<K, V> getPreviousInVariableOrder() {
-      return prev;
-    }
-    @SuppressWarnings({"DataFlowIssue", "NullAway"})
-    @Override public void setPreviousInVariableOrder(@Nullable Node<K, V> prev) {
-      this.prev = prev;
-    }
-    @Override public Node<K, V> getNextInVariableOrder() {
-      return next;
-    }
-    @SuppressWarnings({"DataFlowIssue", "NullAway"})
-    @Override public void setNextInVariableOrder(@Nullable Node<K, V> next) {
-      this.next = next;
+    final class DescendingIterator extends Traverser {
+
+        int wheelIndex;
+
+        int steps;
+
+        DescendingIterator() {
+            wheelIndex = wheel.length - 1;
+        }
+
+        @Override
+        boolean isDone() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        Node<K, V> sentinel() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        @Nullable
+        Node<K, V> goToNextBucket() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        @Nullable
+        Node<K, V> goToNextWheel() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        Node<K, V> traverse(Node<K, V> node) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        int bucketIndex() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
     }
 
-    @Override public @Nullable K getKey() { return null; }
-    @Override public Object getKeyReference() { throw new UnsupportedOperationException(); }
-    @Override public Object getKeyReferenceOrNull() { throw new UnsupportedOperationException(); }
-    @Override public @Nullable V getValue() { return null; }
-    @Override public Object getValueReference() { throw new UnsupportedOperationException(); }
-    @Override public void setValue(V value, @Nullable ReferenceQueue<V> referenceQueue) {}
-    @Override public boolean containsValue(Object value) { return false; }
-    @Override public boolean isAlive() { return false; }
-    @Override public boolean isRetired() { return false; }
-    @Override public boolean isDead() { return false; }
-    @Override public void retire() {}
-    @Override public void die() {}
-  }
+    /**
+     * A sentinel for the doubly-linked list in the bucket.
+     */
+    static final class Sentinel<K, V> extends Node<K, V> {
+
+        Node<K, V> prev;
+
+        Node<K, V> next;
+
+        Sentinel() {
+            prev = next = this;
+        }
+
+        @Override
+        public Node<K, V> getPreviousInVariableOrder() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @SuppressWarnings({ "DataFlowIssue", "NullAway" })
+        @Override
+        public void setPreviousInVariableOrder(@Nullable Node<K, V> prev) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public Node<K, V> getNextInVariableOrder() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @SuppressWarnings({ "DataFlowIssue", "NullAway" })
+        @Override
+        public void setNextInVariableOrder(@Nullable Node<K, V> next) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        @Nullable
+        public K getKey() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public Object getKeyReference() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public Object getKeyReferenceOrNull() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        @Nullable
+        public V getValue() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public Object getValueReference() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public void setValue(V value, @Nullable ReferenceQueue<V> referenceQueue) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public boolean containsValue(Object value) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public boolean isAlive() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public boolean isRetired() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public boolean isDead() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public void retire() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public void die() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
 }

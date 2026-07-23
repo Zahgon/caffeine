@@ -16,7 +16,6 @@
 package com.github.benmanes.caffeine.cache.simulator.parser.kaggle;
 
 import java.util.stream.LongStream;
-
 import com.github.benmanes.caffeine.cache.simulator.parser.TextTraceReader;
 import com.github.benmanes.caffeine.cache.simulator.parser.TraceReader.KeyOnlyTraceReader;
 
@@ -30,14 +29,12 @@ import com.github.benmanes.caffeine.cache.simulator.parser.TraceReader.KeyOnlyTr
  */
 public final class OutbrainTraceReader extends TextTraceReader implements KeyOnlyTraceReader {
 
-  public OutbrainTraceReader(String filePath) {
-    super(filePath);
-  }
+    public OutbrainTraceReader(String filePath) {
+        super(filePath);
+    }
 
-  @Override
-  public LongStream keys() {
-    return lines().skip(1)
-        .map(line -> line.split(","))
-        .mapToLong(array -> Long.parseLong(array[1]));
-  }
+    @Override
+    public LongStream keys() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

@@ -18,7 +18,6 @@ package com.github.benmanes.caffeine.cache.simulator.parser;
 import java.io.BufferedOutputStream;
 import java.io.OutputStream;
 import java.util.function.Function;
-
 import com.github.benmanes.caffeine.cache.simulator.parser.adapt_size.AdaptSizeTraceWriter;
 import com.github.benmanes.caffeine.cache.simulator.parser.cloud_physics.CloudPhysicsTraceWriter;
 import com.github.benmanes.caffeine.cache.simulator.parser.lirs.LirsTraceWriter;
@@ -30,17 +29,16 @@ import com.github.benmanes.caffeine.cache.simulator.parser.lirs.LirsTraceWriter;
  */
 @SuppressWarnings("ImmutableEnumChecker")
 public enum OutputFormat {
-  ADAPT_SIZE(AdaptSizeTraceWriter::new),
-  CLOUD_PHYSICS(CloudPhysicsTraceWriter::new),
-  LIRS(LirsTraceWriter::new);
 
-  private final Function<OutputStream, TraceWriter> factory;
+    ADAPT_SIZE(AdaptSizeTraceWriter::new), CLOUD_PHYSICS(CloudPhysicsTraceWriter::new), LIRS(LirsTraceWriter::new);
 
-  OutputFormat(Function<OutputStream, TraceWriter> factory) {
-    this.factory = factory;
-  }
+    private final Function<OutputStream, TraceWriter> factory;
 
-  public TraceWriter writer(OutputStream output) {
-    return factory.apply(new BufferedOutputStream(output));
-  }
+    OutputFormat(Function<OutputStream, TraceWriter> factory) {
+        this.factory = factory;
+    }
+
+    public TraceWriter writer(OutputStream output) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

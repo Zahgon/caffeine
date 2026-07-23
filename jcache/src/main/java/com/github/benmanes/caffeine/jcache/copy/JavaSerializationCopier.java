@@ -16,7 +16,6 @@
 package com.github.benmanes.caffeine.jcache.copy;
 
 import static java.util.Objects.requireNonNull;
-
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -29,9 +28,7 @@ import java.io.UncheckedIOException;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
-
 import javax.cache.CacheException;
-
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
@@ -49,82 +46,60 @@ import org.jspecify.annotations.Nullable;
  */
 @NullMarked
 public class JavaSerializationCopier extends AbstractCopier<byte[]> {
-  private final @Nullable ObjectInputFilter objectInputFilter;
 
-  public JavaSerializationCopier() {
-    this(javaImmutableClasses(), javaDeepCopyStrategies());
-  }
+    @Nullable
+    private final ObjectInputFilter objectInputFilter;
 
-  public JavaSerializationCopier(Set<Class<?>> immutableClasses,
-      Map<Class<?>, Function<Object, Object>> deepCopyStrategies) {
-    super(immutableClasses, deepCopyStrategies);
-    this.objectInputFilter = null;
-  }
-
-  public JavaSerializationCopier(Set<Class<?>> immutableClasses,
-      Map<Class<?>, Function<Object, Object>> deepCopyStrategies,
-      ObjectInputFilter objectInputFilter) {
-    super(immutableClasses, deepCopyStrategies);
-    this.objectInputFilter = objectInputFilter;
-  }
-
-  @Override
-  protected byte[] serialize(Object object) {
-    var bytes = new ByteArrayOutputStream();
-    try (var output = new ObjectOutputStream(bytes)) {
-      output.writeObject(object);
-    } catch (IOException e) {
-      throw new UncheckedIOException("Failed to serialize " + object.getClass(), e);
-    }
-    return bytes.toByteArray();
-  }
-
-  @Override
-  @SuppressWarnings("BanSerializableRead")
-  protected Object deserialize(byte[] data, ClassLoader classLoader) {
-    try (var bytes = new ByteArrayInputStream(data);
-         var input = newInputStream(bytes, classLoader)) {
-      return input.readObject();
-    } catch (IOException e) {
-      throw new CacheException("Failed to deserialize", e);
-    } catch (ClassNotFoundException e) {
-      throw new CacheException("Failed to resolve a deserialized class", e);
-    }
-  }
-
-  // @VisibleForTesting
-  ObjectInputStream newInputStream(
-      InputStream in, ClassLoader classLoader) throws IOException {
-    var stream = new ClassLoaderAwareObjectInputStream(in, classLoader);
-    if (objectInputFilter != null) {
-      stream.setObjectInputFilter(objectInputFilter);
-    }
-    return stream;
-  }
-
-  /** An {@linkplain ObjectInputStream} that instantiates using the supplied classloader. */
-  protected static class ClassLoaderAwareObjectInputStream extends ObjectInputStream {
-    private final ClassLoader classLoader;
-
-    public ClassLoaderAwareObjectInputStream(InputStream in, ClassLoader classLoader)
-        throws IOException {
-      super(in);
-      this.classLoader = requireNonNull(classLoader);
+    public JavaSerializationCopier() {
+        this(javaImmutableClasses(), javaDeepCopyStrategies());
     }
 
-    protected ClassLoader getClassLoader() {
-      return classLoader;
+    public JavaSerializationCopier(Set<Class<?>> immutableClasses, Map<Class<?>, Function<Object, Object>> deepCopyStrategies) {
+        super(immutableClasses, deepCopyStrategies);
+        this.objectInputFilter = null;
+    }
+
+    public JavaSerializationCopier(Set<Class<?>> immutableClasses, Map<Class<?>, Function<Object, Object>> deepCopyStrategies, ObjectInputFilter objectInputFilter) {
+        super(immutableClasses, deepCopyStrategies);
+        this.objectInputFilter = objectInputFilter;
+    }
+
+    @Override
+    protected byte[] serialize(Object object) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
     @SuppressWarnings("BanSerializableRead")
-    protected Class<?> resolveClass(ObjectStreamClass desc)
-        throws IOException, ClassNotFoundException {
-      try {
-        return Class.forName(desc.getName(), /* initialize= */ false, getClassLoader());
-      } catch (ClassNotFoundException ignored) {
-        return super.resolveClass(desc);
-      }
+    protected Object deserialize(byte[] data, ClassLoader classLoader) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
+
+    // @VisibleForTesting
+    ObjectInputStream newInputStream(InputStream in, ClassLoader classLoader) throws IOException {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    /**
+     * An {@linkplain ObjectInputStream} that instantiates using the supplied classloader.
+     */
+    protected static class ClassLoaderAwareObjectInputStream extends ObjectInputStream {
+
+        private final ClassLoader classLoader;
+
+        public ClassLoaderAwareObjectInputStream(InputStream in, ClassLoader classLoader) throws IOException {
+            super(in);
+            this.classLoader = requireNonNull(classLoader);
+        }
+
+        protected ClassLoader getClassLoader() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        @SuppressWarnings("BanSerializableRead")
+        protected Class<?> resolveClass(ObjectStreamClass desc) throws IOException, ClassNotFoundException {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
 }

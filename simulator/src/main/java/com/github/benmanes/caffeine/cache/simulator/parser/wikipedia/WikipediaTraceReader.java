@@ -16,13 +16,10 @@
 package com.github.benmanes.caffeine.cache.simulator.parser.wikipedia;
 
 import static java.util.Objects.requireNonNull;
-
 import java.util.Objects;
 import java.util.stream.LongStream;
-
 import org.apache.commons.lang3.Strings;
 import org.jspecify.annotations.Nullable;
-
 import com.github.benmanes.caffeine.cache.simulator.parser.TextTraceReader;
 import com.github.benmanes.caffeine.cache.simulator.parser.TraceReader.KeyOnlyTraceReader;
 import com.google.common.collect.ImmutableList;
@@ -36,108 +33,97 @@ import com.google.errorprone.annotations.Var;
  * @author ben.manes@gmail.com (Ben Manes)
  */
 public final class WikipediaTraceReader extends TextTraceReader implements KeyOnlyTraceReader {
-  private static final ImmutableList<String> CONTAINS_FILTER = ImmutableList.of("?search=",
-      "&search=", "User+talk", "User_talk", "User:", "Talk:", "&diff=", "&action=rollback",
-      "Special:Watchlist");
-  private static final ImmutableList<String> STARTS_WITH_FILTER = ImmutableList.of(
-      "wiki/Special:Search", "w/query.php", "wiki/Talk:", "wiki/Special:AutoLogin",
-      "Special:UserLogin", "w/api.php", "error:");
-  private static final ImmutableList<Replacement> REPLACEMENTS = ImmutableList.of(
-      new Replacement("%2F", "/"), new Replacement("%20", " "),
-      new Replacement("&amp;", "&"), new Replacement("%3A", ":"));
 
-  public WikipediaTraceReader(String filePath) {
-    super(filePath);
-  }
+    private static final ImmutableList<String> CONTAINS_FILTER = ImmutableList.of("?search=", "&search=", "User+talk", "User_talk", "User:", "Talk:", "&diff=", "&action=rollback", "Special:Watchlist");
 
-  @Override
-  public LongStream keys() {
-    return lines()
-        .map(WikipediaTraceReader::parseRequest)
-        .filter(Objects::nonNull)
-        .mapToLong(path -> Hashing.murmur3_128().hashUnencodedChars(path).asLong());
-  }
+    private static final ImmutableList<String> STARTS_WITH_FILTER = ImmutableList.of("wiki/Special:Search", "w/query.php", "wiki/Talk:", "wiki/Special:AutoLogin", "Special:UserLogin", "w/api.php", "error:");
 
-  /**
-   * Returns the request's path or {@code null} if this request should be ignored. The input is
-   * space delimited with the following format,
-   * <ul>
-   *  <li>A monotonically increasing counter (useful for sorting the trace in chronological order)
-   *  <li>The timestamp of the request in Unix notation with millisecond precision
-   *  <li>The requested URL
-   *  <li>A flag to indicate if the request resulted in a database update or not ('-' or 'save')
-   * </ul>
-   */
-  private static @Nullable String parseRequest(String line) {
-    if (!isRead(line)) {
-      return null;
-    }
-    String url = getRequestUrl(line);
-    if (url.length() > 12) {
-      String path = getPath(url);
-      if (isAllowed(path)) {
-        return path;
-      }
-    }
-    return null;
-  }
+    private static final ImmutableList<Replacement> REPLACEMENTS = ImmutableList.of(new Replacement("%2F", "/"), new Replacement("%20", " "), new Replacement("&amp;", "&"), new Replacement("%3A", ":"));
 
-  /** Returns whether the request resulted in a write to the database. */
-  private static boolean isRead(String line) {
-    return line.charAt(line.length() - 1) == '-';
-  }
-
-  /** Returns the request URL. */
-  private static String getRequestUrl(String line) {
-    @Var int end = line.length() - 2;
-    while (line.charAt(end) != ' ') {
-      end--;
+    public WikipediaTraceReader(String filePath) {
+        super(filePath);
     }
 
-    @Var int start = end - 1;
-    while (line.charAt(start) != ' ') {
-      start--;
-    }
-    return line.substring(start + 1, end);
-  }
-
-  /** Returns the path segment of the URL. */
-  private static String getPath(String url) {
-    int index = url.indexOf('/', 7);
-    if (index == -1) {
-      return url;
+    @Override
+    public LongStream keys() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
-    // Replace the HTML entities that we want to search for inside paths
-    @Var String cleansed = url.substring(index + 1);
-    for (var replacement : REPLACEMENTS) {
-      cleansed = Strings.CS.replace(cleansed, replacement.search(), replacement.replace());
+    /**
+     * Returns the request's path or {@code null} if this request should be ignored. The input is
+     * space delimited with the following format,
+     * <ul>
+     *  <li>A monotonically increasing counter (useful for sorting the trace in chronological order)
+     *  <li>The timestamp of the request in Unix notation with millisecond precision
+     *  <li>The requested URL
+     *  <li>A flag to indicate if the request resulted in a database update or not ('-' or 'save')
+     * </ul>
+     */
+    @Nullable
+    private static String parseRequest(String line) {
+        if (!isRead(line)) {
+            return null;
+        }
+        String url = getRequestUrl(line);
+        if (url.length() > 12) {
+            String path = getPath(url);
+            if (isAllowed(path)) {
+                return path;
+            }
+        }
+        return null;
     }
-    return cleansed;
-  }
 
-  /**
-   * Returns if the path should be included. The request is ignored if it is a search query, a
-   * page revision, related to users or user management, or talk pages.
-   */
-  public static boolean isAllowed(String path) {
-    for (String filter : STARTS_WITH_FILTER) {
-      if (path.startsWith(filter)) {
-        return false;
-      }
+    /**
+     * Returns whether the request resulted in a write to the database.
+     */
+    private static boolean isRead(String line) {
+        return line.charAt(line.length() - 1) == '-';
     }
-    for (String filter : CONTAINS_FILTER) {
-      if (path.contains(filter)) {
-        return false;
-      }
-    }
-    return true;
-  }
 
-  record Replacement(String search, String replace) {
-    Replacement {
-      requireNonNull(search);
-      requireNonNull(replace);
+    /**
+     * Returns the request URL.
+     */
+    private static String getRequestUrl(String line) {
+        @Var
+        int end = line.length() - 2;
+        while (line.charAt(end) != ' ') {
+            end--;
+        }
+        @Var
+        int start = end - 1;
+        while (line.charAt(start) != ' ') {
+            start--;
+        }
+        return line.substring(start + 1, end);
     }
-  }
+
+    /**
+     * Returns the path segment of the URL.
+     */
+    private static String getPath(String url) {
+        int index = url.indexOf('/', 7);
+        if (index == -1) {
+            return url;
+        }
+        // Replace the HTML entities that we want to search for inside paths
+        @Var
+        String cleansed = url.substring(index + 1);
+        for (var replacement : REPLACEMENTS) {
+            cleansed = Strings.CS.replace(cleansed, replacement.search(), replacement.replace());
+        }
+        return cleansed;
+    }
+
+    public static boolean isAllowed(String path) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    record Replacement(String search, String replace) {
+
+        Replacement {
+            requireNonNull(search);
+            requireNonNull(replace);
+        }
+    }
 }

@@ -16,13 +16,11 @@
 package com.github.benmanes.caffeine.cache;
 
 import static java.util.Objects.requireNonNull;
-
 import java.util.Comparator;
 import java.util.ConcurrentModificationException;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
-
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -52,113 +50,78 @@ import org.jspecify.annotations.Nullable;
  */
 interface LinkedDeque<E> extends Deque<E> {
 
-  /**
-   * Returns if the element is at the front of the deque.
-   *
-   * @param e the linked element
-   */
-  boolean isFirst(@Nullable E e);
+    /**
+     * Returns if the element is at the front of the deque.
+     *
+     * @param e the linked element
+     */
+    boolean isFirst(@Nullable E e);
 
-  /**
-   * Returns if the element is at the back of the deque.
-   *
-   * @param e the linked element
-   */
-  boolean isLast(@Nullable E e);
+    /**
+     * Returns if the element is at the back of the deque.
+     *
+     * @param e the linked element
+     */
+    boolean isLast(@Nullable E e);
 
-  /**
-   * Moves the element to the front of the deque so that it becomes the first element.
-   *
-   * @param e the linked element
-   */
-  void moveToFront(E e);
+    /**
+     * Moves the element to the front of the deque so that it becomes the first element.
+     *
+     * @param e the linked element
+     */
+    void moveToFront(E e);
 
-  /**
-   * Moves the element to the back of the deque so that it becomes the last element.
-   *
-   * @param e the linked element
-   */
-  void moveToBack(E e);
+    /**
+     * Moves the element to the back of the deque so that it becomes the last element.
+     *
+     * @param e the linked element
+     */
+    void moveToBack(E e);
 
-  /**
-   * Retrieves the previous element or {@code null} if either the element is unlinked or the first
-   * element on the deque.
-   */
-  @Nullable E getPrevious(E e);
+    /**
+     * Retrieves the previous element or {@code null} if either the element is unlinked or the first
+     * element on the deque.
+     */
+    @Nullable
+    E getPrevious(E e);
 
-  /** Sets the previous element or {@code null} if there is no link. */
-  void setPrevious(E e, @Nullable E prev);
+    /**
+     * Sets the previous element or {@code null} if there is no link.
+     */
+    void setPrevious(E e, @Nullable E prev);
 
-  /**
-   * Retrieves the next element or {@code null} if either the element is unlinked or the last
-   * element on the deque.
-   */
-  @Nullable E getNext(E e);
+    /**
+     * Retrieves the next element or {@code null} if either the element is unlinked or the last
+     * element on the deque.
+     */
+    @Nullable
+    E getNext(E e);
 
-  /** Sets the next element or {@code null} if there is no link. */
-  void setNext(E e, @Nullable E next);
+    /**
+     * Sets the next element or {@code null} if there is no link.
+     */
+    void setNext(E e, @Nullable E next);
 
-  @Override
-  PeekingIterator<E> iterator();
+    @Override
+    PeekingIterator<E> iterator();
 
-  @Override
-  PeekingIterator<E> descendingIterator();
+    @Override
+    PeekingIterator<E> descendingIterator();
 
-  interface PeekingIterator<E> extends Iterator<E> {
+    interface PeekingIterator<E> extends Iterator<E> {
 
-    /** Returns the next element in the iteration, without advancing the iteration. */
-    @Nullable E peek();
+        /**
+         * Returns the next element in the iteration, without advancing the iteration.
+         */
+        @Nullable
+        E peek();
 
-    /** Returns an iterator that returns the first iteration followed by the second iteration. */
-    static <E> PeekingIterator<E> concat(PeekingIterator<E> first, PeekingIterator<E> second) {
-      return new PeekingIterator<>() {
-        @Override public boolean hasNext() {
-          return first.hasNext() || second.hasNext();
+        static <E> PeekingIterator<E> concat(PeekingIterator<E> first, PeekingIterator<E> second) {
+            throw new UnsupportedOperationException("STUB: not implemented");
         }
-        @Override public E next() {
-          if (first.hasNext()) {
-            return first.next();
-          } else if (second.hasNext()) {
-            return second.next();
-          }
-          throw new NoSuchElementException();
+
+        static <E> PeekingIterator<E> comparing(PeekingIterator<E> first, PeekingIterator<E> second, Comparator<E> comparator) {
+            throw new UnsupportedOperationException("STUB: not implemented");
         }
-        @Override public @Nullable E peek() {
-          return first.hasNext() ? first.peek() : second.peek();
-        }
-      };
     }
-
-    /** Returns an iterator that selects the greater element from the backing iterators. */
-    static <E> PeekingIterator<E> comparing(PeekingIterator<E> first,
-          PeekingIterator<E> second, Comparator<E> comparator) {
-      return new PeekingIterator<>() {
-        @Override public boolean hasNext() {
-          return first.hasNext() || second.hasNext();
-        }
-        @Override public E next() {
-          if (!first.hasNext()) {
-            return second.next();
-          } else if (!second.hasNext()) {
-            return first.next();
-          }
-          E o1 = requireNonNull(first.peek());
-          E o2 = requireNonNull(second.peek());
-          boolean greaterOrEqual = (comparator.compare(o1, o2) >= 0);
-          return greaterOrEqual ? first.next() : second.next();
-        }
-        @Override public @Nullable E peek() {
-          if (!first.hasNext()) {
-            return second.peek();
-          } else if (!second.hasNext()) {
-            return first.peek();
-          }
-          E o1 = requireNonNull(first.peek());
-          E o2 = requireNonNull(second.peek());
-          boolean greaterOrEqual = (comparator.compare(o1, o2) >= 0);
-          return greaterOrEqual ? o1 : o2;
-        }
-      };
-    }
-  }
 }

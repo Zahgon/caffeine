@@ -28,50 +28,45 @@ import com.typesafe.config.Config;
  * @author ohadey@gmail.com (Ohad Eytan)
  */
 public final class IndicatorResetCountMin4 implements Frequency {
-  private final ClimberResetCountMin4 sketch;
 
-  final Indicator indicator;
+    private final ClimberResetCountMin4 sketch;
 
-  public IndicatorResetCountMin4(Config config) {
-    this.sketch = new ClimberResetCountMin4(config);
-    this.indicator = new Indicator(config);
-  }
+    final Indicator indicator;
 
-  @Override
-  public int frequency(long e) {
-    return sketch.frequency(e);
-  }
-
-  @Override
-  public void increment(long e) {
-    sketch.increment(e);
-    indicator.record(e);
-  }
-
-  @Override
-  public void reportMiss() {
-    if (sketch.getEventsToCount() <= 0) {
-      sketch.resetEventsToCount();
-      double ind = getIndicator();
-      sketch.setStep(hintToStep(ind));
-      indicator.reset();
+    public IndicatorResetCountMin4(Config config) {
+        this.sketch = new ClimberResetCountMin4(config);
+        this.indicator = new Indicator(config);
     }
-  }
 
-  private double getIndicator() {
-    return indicator.getIndicator();
-  }
+    @Override
+    public int frequency(long e) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  private static int hintToStep(double ind) {
-    return (int) (ind * 30);
-  }
+    @Override
+    public void increment(long e) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @SuppressWarnings("unused")
-  public int getEventsToCount() {
-    return sketch.getEventsToCount();
-  }
+    @Override
+    public void reportMiss() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  public int getPeriod() {
-    return sketch.getPeriod();
-  }
+    private double getIndicator() {
+        return indicator.getIndicator();
+    }
+
+    private static int hintToStep(double ind) {
+        return (int) (ind * 30);
+    }
+
+    @SuppressWarnings("unused")
+    public int getEventsToCount() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public int getPeriod() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

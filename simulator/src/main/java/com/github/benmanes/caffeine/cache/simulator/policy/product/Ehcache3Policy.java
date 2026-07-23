@@ -16,7 +16,6 @@
 package com.github.benmanes.caffeine.cache.simulator.policy.product;
 
 import static com.google.common.base.Preconditions.checkState;
-
 import org.ehcache.Cache;
 import org.ehcache.CacheManager;
 import org.ehcache.config.builders.CacheConfigurationBuilder;
@@ -25,7 +24,6 @@ import org.ehcache.config.builders.ResourcePoolsBuilder;
 import org.ehcache.config.units.EntryUnit;
 import org.ehcache.core.internal.statistics.DefaultStatisticsService;
 import org.ehcache.core.statistics.CacheStatistics;
-
 import com.github.benmanes.caffeine.cache.simulator.BasicSettings;
 import com.github.benmanes.caffeine.cache.simulator.policy.AccessEvent;
 import com.github.benmanes.caffeine.cache.simulator.policy.Policy;
@@ -40,48 +38,36 @@ import com.typesafe.config.Config;
  */
 @PolicySpec(name = "product.Ehcache3")
 public final class Ehcache3Policy implements Policy {
-  private final Cache<Long, Boolean> cache;
-  private final CacheManager cacheManager;
-  private final PolicyStats policyStats;
-  private final CacheStatistics stats;
 
-  public Ehcache3Policy(Config config) {
-    policyStats = new PolicyStats(name());
-    var settings = new BasicSettings(config);
-    var statistics = new DefaultStatisticsService();
-    cacheManager = CacheManagerBuilder.newCacheManagerBuilder()
-        .using(statistics)
-        .build(true);
-    cache = cacheManager.createCache("ehcache3",
-        CacheConfigurationBuilder.newCacheConfigurationBuilder(Long.class, Boolean.class,
-            ResourcePoolsBuilder.newResourcePoolsBuilder()
-                .heap(settings.maximumSize(), EntryUnit.ENTRIES))
-            .build());
-    stats = statistics.getCacheStatistics("ehcache3");
-  }
+    private final Cache<Long, Boolean> cache;
 
-  @Override
-  public void record(AccessEvent event) {
-    Long key = event.longKey();
-    var value = cache.get(key);
-    if (value == null) {
-      cache.put(key, true);
-      policyStats.recordMiss();
-    } else {
-      policyStats.recordHit();
+    private final CacheManager cacheManager;
+
+    private final PolicyStats policyStats;
+
+    private final CacheStatistics stats;
+
+    public Ehcache3Policy(Config config) {
+        policyStats = new PolicyStats(name());
+        var settings = new BasicSettings(config);
+        var statistics = new DefaultStatisticsService();
+        cacheManager = CacheManagerBuilder.newCacheManagerBuilder().using(statistics).build(true);
+        cache = cacheManager.createCache("ehcache3", CacheConfigurationBuilder.newCacheConfigurationBuilder(Long.class, Boolean.class, ResourcePoolsBuilder.newResourcePoolsBuilder().heap(settings.maximumSize(), EntryUnit.ENTRIES)).build());
+        stats = statistics.getCacheStatistics("ehcache3");
     }
-  }
 
-  @Override
-  public PolicyStats stats() {
-    return policyStats;
-  }
+    @Override
+    public void record(AccessEvent event) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  public void finished() {
-    cacheManager.close();
-    policyStats.addEvictions(stats.getCacheEvictions());
-    checkState(policyStats.hitCount() == stats.getCacheHits());
-    checkState(policyStats.missCount() == stats.getCacheMisses());
-  }
+    @Override
+    public PolicyStats stats() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public void finished() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

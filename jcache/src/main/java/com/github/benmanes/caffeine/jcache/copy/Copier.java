@@ -27,27 +27,27 @@ import org.jspecify.annotations.NullMarked;
 @FunctionalInterface
 public interface Copier {
 
-  /**
-   * Returns a deep copy of the object.
-   *
-   * @param object the object to copy
-   * @param classLoader the classloader to instantiate with
-   * @param <T> the type of object being copied
-   * @return a copy of the object
-   */
-  <T> T copy(T object, ClassLoader classLoader);
+    /**
+     * Returns a deep copy of the object.
+     *
+     * @param object the object to copy
+     * @param classLoader the classloader to instantiate with
+     * @param <T> the type of object being copied
+     * @return a copy of the object
+     */
+    <T> T copy(T object, ClassLoader classLoader);
 
-  /** Return a copy strategy that performs an identity function, for use by store-by-reference. */
-  static Copier identity() {
-    return IdentityCopier.INSTANCE;
-  }
+    static Copier identity() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }
 
 enum IdentityCopier implements Copier {
-  INSTANCE;
 
-  @Override
-  public <T> T copy(T object, ClassLoader classLoader) {
-    return object;
-  }
+    INSTANCE;
+
+    @Override
+    public <T> T copy(T object, ClassLoader classLoader) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

@@ -16,9 +16,7 @@
 package com.github.benmanes.caffeine.cache.simulator.membership.bloom;
 
 import static com.google.common.base.Preconditions.checkArgument;
-
 import java.util.Arrays;
-
 import com.github.benmanes.caffeine.cache.simulator.BasicSettings;
 import com.github.benmanes.caffeine.cache.simulator.membership.Membership;
 import com.google.errorprone.annotations.Var;
@@ -35,124 +33,71 @@ import com.typesafe.config.Config;
  */
 @SuppressWarnings("NotNullFieldNotInitialized")
 public final class BloomFilter implements Membership {
-  static final long[] SEED = { // A mixture of seeds from FNV-1a, CityHash, and Murmur3
-      0xc3a5c85c97cb3127L, 0xb492b66fbe98f273L, 0x9ae16a3b2f90404fL, 0xcbf29ce484222325L};
-  static final int BITS_PER_LONG_SHIFT = 6; // 64-bits
-  static final int BITS_PER_LONG_MASK = Long.SIZE - 1;
 
-  int tableShift;
-  long[] table;
+    static final long[] SEED = { // A mixture of seeds from FNV-1a, CityHash, and Murmur3
+    0xc3a5c85c97cb3127L, 0xb492b66fbe98f273L, 0x9ae16a3b2f90404fL, 0xcbf29ce484222325L };
 
-  /**
-   * Creates a lazily initialized membership sketch, requiring {@link #ensureCapacity} be called
-   * when the expected number of insertions and the false positive probability have been determined.
-   */
-  @SuppressWarnings("NullAway.Init")
-  public BloomFilter() {}
+    // 64-bits
+    static final int BITS_PER_LONG_SHIFT = 6;
 
-  /**
-   * Creates a membership sketch based on the expected number of insertions and the false positive
-   * probability.
-   */
-  public BloomFilter(Config config) {
-    var settings = new BasicSettings(config).membership();
-    ensureCapacity(settings.expectedInsertions(), settings.fpp());
-  }
+    static final int BITS_PER_LONG_MASK = Long.SIZE - 1;
 
-  /**
-   * Initializes and increases the capacity of this {@code BloomFilter} instance, if necessary,
-   * to ensure that it can accurately estimate the membership of elements given the expected
-   * number of insertions. This operation forgets all previous memberships when resizing.
-   *
-   * @param expectedInsertions the number of expected insertions
-   * @param fpp the false positive probability, where {@literal 0.0 > fpp < 1.0}
-   */
-  @SuppressWarnings("Varifier")
-  public void ensureCapacity(long expectedInsertions, double fpp) {
-    checkArgument(expectedInsertions >= 0);
-    checkArgument(fpp > 0 && fpp < 1);
+    int tableShift;
 
-    double optimalBitsFactor = -Math.log(fpp) / (Math.log(2) * Math.log(2));
-    int optimalNumberOfBits = (int) (expectedInsertions * optimalBitsFactor);
-    int optimalSize = Math.max(2, optimalNumberOfBits >>> BITS_PER_LONG_SHIFT);
-    if ((table == null) || (table.length < optimalSize)) {
-      int powerOfTwoShift = Integer.SIZE - Integer.numberOfLeadingZeros(optimalSize - 1);
-      tableShift = Integer.SIZE - powerOfTwoShift;
-      table = new long[1 << powerOfTwoShift];
+    long[] table;
+
+    /**
+     * Creates a lazily initialized membership sketch, requiring {@link #ensureCapacity} be called
+     * when the expected number of insertions and the false positive probability have been determined.
+     */
+    @SuppressWarnings("NullAway.Init")
+    public BloomFilter() {
     }
-  }
 
-  @Override
-  public boolean mightContain(long e) {
-    int item = spread(Long.hashCode(e));
-    for (int i = 0; i < 4; i++) {
-      int hash = seeded(item, i);
-      int index = hash >>> tableShift;
-      if ((table[index] & bitmask(hash)) == 0L) {
-        return false;
-      }
+    /**
+     * Creates a membership sketch based on the expected number of insertions and the false positive
+     * probability.
+     */
+    public BloomFilter(Config config) {
+        var settings = new BasicSettings(config).membership();
+        ensureCapacity(settings.expectedInsertions(), settings.fpp());
     }
-    return true;
-  }
 
-  @Override
-  public void clear() {
-    Arrays.fill(table, 0L);
-  }
+    @SuppressWarnings("Varifier")
+    public void ensureCapacity(long expectedInsertions, double fpp) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  @SuppressWarnings("ShortCircuitBoolean")
-  public boolean put(long e) {
-    int item = spread(Long.hashCode(e));
-    return setAt(item, 0) | setAt(item, 1) | setAt(item, 2) | setAt(item, 3);
-  }
+    @Override
+    public boolean mightContain(long e) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  /**
-   * Sets the membership flag for the computed bit location.
-   *
-   * @param item the element's hash
-   * @param seedIndex the hash seed index
-   * @return if the membership changed as a result of this operation
-   */
-  @SuppressWarnings("PMD.LinguisticNaming")
-  boolean setAt(int item, int seedIndex) {
-    int hash = seeded(item, seedIndex);
-    int index = hash >>> tableShift;
-    long previous = table[index];
-    table[index] |= bitmask(hash);
-    return (table[index] != previous);
-  }
+    @Override
+    public void clear() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  /**
-   * Applies a supplemental hash function to a given hashCode, which defends against poor quality
-   * hash functions.
-   */
-  int spread(@Var int x) {
-    x = ((x >>> 16) ^ x) * 0x45d9f3b;
-    x = ((x >>> 16) ^ x) * 0x45d9f3b;
-    return (x >>> 16) ^ x;
-  }
+    @Override
+    @SuppressWarnings("ShortCircuitBoolean")
+    public boolean put(long e) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  /**
-   * Applies the independent hash function for the given seed index.
-   *
-   * @param item the element's hash
-   * @param i the hash seed index
-   * @return the table index
-   */
-  static int seeded(int item, int i) {
-    @Var long hash = (item + SEED[i]) * SEED[i];
-    hash += hash >>> 32;
-    return (int) hash;
-  }
+    @SuppressWarnings("PMD.LinguisticNaming")
+    boolean setAt(int item, int seedIndex) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  /**
-   * Applies a hash function to determine the index of the bit.
-   *
-   * @param hash the seeded hash code
-   * @return the mask to the bit
-   */
-  static long bitmask(int hash) {
-    return 1L << (hash & BITS_PER_LONG_MASK);
-  }
+    int spread(@Var int x) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    static int seeded(int item, int i) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    static long bitmask(int hash) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

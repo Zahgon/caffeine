@@ -16,10 +16,8 @@
 package com.github.benmanes.caffeine.cache.simulator.parser.adapt_size;
 
 import static com.github.benmanes.caffeine.cache.simulator.policy.Policy.Characteristic.WEIGHTED;
-
 import java.util.Set;
 import java.util.stream.Stream;
-
 import com.github.benmanes.caffeine.cache.simulator.parser.TextTraceReader;
 import com.github.benmanes.caffeine.cache.simulator.policy.AccessEvent;
 import com.github.benmanes.caffeine.cache.simulator.policy.Policy.Characteristic;
@@ -36,26 +34,18 @@ import com.google.common.hash.Hashing;
  */
 public final class AdaptSizeTraceReader extends TextTraceReader {
 
-  public AdaptSizeTraceReader(String filePath) {
-    super(filePath);
-  }
+    public AdaptSizeTraceReader(String filePath) {
+        super(filePath);
+    }
 
-  @Override
-  public Set<Characteristic> characteristics() {
-    return Set.of(WEIGHTED);
-  }
+    @Override
+    public Set<Characteristic> characteristics() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  @SuppressWarnings("UnstableApiUsage")
-  public Stream<AccessEvent> events() {
-    return lines()
-        .map(line -> line.split(" ", 3))
-        .map(array -> {
-          long key = Long.parseLong(array[1]);
-          int weight = Integer.parseInt(array[2]);
-          long hashKey = Hashing.murmur3_128().newHasher()
-              .putLong(key).putInt(weight).hash().asLong();
-          return AccessEvent.forKeyAndWeight(hashKey, weight);
-        });
-  }
+    @Override
+    @SuppressWarnings("UnstableApiUsage")
+    public Stream<AccessEvent> events() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

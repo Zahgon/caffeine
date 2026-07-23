@@ -16,10 +16,8 @@
 package com.github.benmanes.caffeine.cache.simulator.report;
 
 import static java.util.Objects.requireNonNull;
-
 import java.util.Set;
 import java.util.function.BiFunction;
-
 import com.github.benmanes.caffeine.cache.simulator.policy.Policy.Characteristic;
 import com.github.benmanes.caffeine.cache.simulator.report.csv.CsvReporter;
 import com.github.benmanes.caffeine.cache.simulator.report.table.TableReporter;
@@ -32,16 +30,16 @@ import com.typesafe.config.Config;
  */
 @SuppressWarnings("ImmutableEnumChecker")
 public enum ReportFormat {
-  TABLE(TableReporter::new),
-  CSV(CsvReporter::new);
 
-  private final BiFunction<Config, Set<Characteristic>, Reporter> factory;
+    TABLE(TableReporter::new), CSV(CsvReporter::new);
 
-  ReportFormat(BiFunction<Config, Set<Characteristic>, Reporter> factory) {
-    this.factory = requireNonNull(factory);
-  }
+    private final BiFunction<Config, Set<Characteristic>, Reporter> factory;
 
-  public Reporter create(Config config, Set<Characteristic> characteristics) {
-    return factory.apply(config, characteristics);
-  }
+    ReportFormat(BiFunction<Config, Set<Characteristic>, Reporter> factory) {
+        this.factory = requireNonNull(factory);
+    }
+
+    public Reporter create(Config config, Set<Characteristic> characteristics) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

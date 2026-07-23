@@ -18,7 +18,6 @@ package com.github.benmanes.caffeine.cache.simulator.admission.perfect;
 import com.github.benmanes.caffeine.cache.simulator.BasicSettings;
 import com.github.benmanes.caffeine.cache.simulator.admission.Frequency;
 import com.typesafe.config.Config;
-
 import it.unimi.dsi.fastutil.longs.Long2IntMap;
 import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
 
@@ -28,42 +27,39 @@ import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
  * @author ben.manes@gmail.com (Ben Manes)
  */
 public final class PerfectFrequency implements Frequency {
-  private final Long2IntMap counts;
-  private final int sampleSize;
 
-  private int size;
+    private final Long2IntMap counts;
 
-  public PerfectFrequency(Config config) {
-    counts = new Long2IntOpenHashMap();
-    var settings = new BasicSettings(config);
-    sampleSize = Math.toIntExact(10 * settings.maximumSize());
-  }
+    private final int sampleSize;
 
-  @Override
-  public int frequency(long e) {
-    return counts.get(e);
-  }
+    private int size;
 
-  @Override
-  public void increment(long e) {
-    counts.put(e, counts.get(e) + 1);
-
-    size++;
-    if (size == sampleSize) {
-      reset();
+    public PerfectFrequency(Config config) {
+        counts = new Long2IntOpenHashMap();
+        var settings = new BasicSettings(config);
+        sampleSize = Math.toIntExact(10 * settings.maximumSize());
     }
-  }
 
-  private void reset() {
-    for (var iterator = counts.long2IntEntrySet().iterator(); iterator.hasNext();) {
-      var entry = iterator.next();
-      int newValue = entry.getIntValue() / 2;
-      if (newValue == 0) {
-        iterator.remove();
-      } else {
-        entry.setValue(newValue);
-      }
+    @Override
+    public int frequency(long e) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    size /= 2;
-  }
+
+    @Override
+    public void increment(long e) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    private void reset() {
+        for (var iterator = counts.long2IntEntrySet().iterator(); iterator.hasNext(); ) {
+            var entry = iterator.next();
+            int newValue = entry.getIntValue() / 2;
+            if (newValue == 0) {
+                iterator.remove();
+            } else {
+                entry.setValue(newValue);
+            }
+        }
+        size /= 2;
+    }
 }

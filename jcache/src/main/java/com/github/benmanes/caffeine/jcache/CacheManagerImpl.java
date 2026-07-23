@@ -16,7 +16,6 @@
 package com.github.benmanes.caffeine.jcache;
 
 import static java.util.Objects.requireNonNull;
-
 import java.lang.ref.WeakReference;
 import java.net.URI;
 import java.util.ArrayList;
@@ -25,14 +24,12 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
-
 import javax.cache.Cache;
 import javax.cache.CacheException;
 import javax.cache.CacheManager;
 import javax.cache.configuration.CompleteConfiguration;
 import javax.cache.configuration.Configuration;
 import javax.cache.spi.CachingProvider;
-
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -42,219 +39,112 @@ import org.jspecify.annotations.Nullable;
  */
 @SuppressWarnings("PMD.CloseResource")
 public final class CacheManagerImpl implements CacheManager {
-  final WeakReference<ClassLoader> classLoaderReference;
-  final Map<String, CacheProxy<?, ?>> caches;
-  final CachingProvider cacheProvider;
-  final Properties properties;
-  final Object lock;
-  final URI uri;
 
-  final boolean runsAsAnOsgiBundle;
+    final WeakReference<ClassLoader> classLoaderReference;
 
-  volatile boolean closed;
+    final Map<String, CacheProxy<?, ?>> caches;
 
-  public CacheManagerImpl(CachingProvider cacheProvider, boolean runsAsAnOsgiBundle,
-      URI uri, ClassLoader classLoader, Properties properties) {
-    this.classLoaderReference = new WeakReference<>(requireNonNull(classLoader));
-    this.cacheProvider = requireNonNull(cacheProvider);
-    this.runsAsAnOsgiBundle = runsAsAnOsgiBundle;
-    this.properties = requireNonNull(properties);
-    this.caches = new ConcurrentHashMap<>();
-    this.uri = requireNonNull(uri);
-    this.lock = new Object();
-  }
+    final CachingProvider cacheProvider;
 
-  @Override
-  public CachingProvider getCachingProvider() {
-    return cacheProvider;
-  }
+    final Properties properties;
 
-  @Override
-  public URI getURI() {
-    return uri;
-  }
+    final Object lock;
 
-  @Override
-  public @Nullable ClassLoader getClassLoader() {
-    return classLoaderReference.get();
-  }
+    final URI uri;
 
-  @Override
-  public Properties getProperties() {
-    return properties;
-  }
+    final boolean runsAsAnOsgiBundle;
 
-  @Override
-  public <K, V, C extends Configuration<K, V>> Cache<K, V> createCache(
-      String cacheName, C configuration) {
-    requireNonNull(configuration);
-    var classLoader = Thread.currentThread().getContextClassLoader();
-    try {
-      if (runsAsAnOsgiBundle) {
-        // override the context class loader with the CachingManager's classloader
-        Thread.currentThread().setContextClassLoader(getClassLoader());
-      }
+    volatile boolean closed;
 
-      synchronized (lock) {
-        requireNotClosed();
-        CacheProxy<?, ?> cache = caches.compute(cacheName, (name, existing) -> {
-          if (existing != null) {
-            throw new CacheException("Cache " + cacheName + " already exists");
-          } else if (CacheFactory.isDefinedExternally(this, cacheName)) {
-            throw new CacheException("Cache " + cacheName + " is configured externally");
-          }
-          return CacheFactory.createCache(this, cacheName, configuration);
-        });
-
-        @SuppressWarnings("unchecked")
-        var config = cache.getConfiguration(CompleteConfiguration.class);
-        enableManagement(cache.getName(), config.isManagementEnabled());
-        enableStatistics(cache.getName(), config.isStatisticsEnabled());
-
-        @SuppressWarnings("unchecked")
-        var castedCache = (Cache<K, V>) cache;
-        return castedCache;
-      }
-    } finally {
-      Thread.currentThread().setContextClassLoader(classLoader);
+    public CacheManagerImpl(CachingProvider cacheProvider, boolean runsAsAnOsgiBundle, URI uri, ClassLoader classLoader, Properties properties) {
+        this.classLoaderReference = new WeakReference<>(requireNonNull(classLoader));
+        this.cacheProvider = requireNonNull(cacheProvider);
+        this.runsAsAnOsgiBundle = runsAsAnOsgiBundle;
+        this.properties = requireNonNull(properties);
+        this.caches = new ConcurrentHashMap<>();
+        this.uri = requireNonNull(uri);
+        this.lock = new Object();
     }
-  }
 
-  @Override
-  public <K, V> @Nullable Cache<K, V> getCache(
-      String cacheName, Class<K> keyType, Class<V> valueType) {
-    requireNonNull(keyType);
-    requireNonNull(valueType);
-    var classLoader = Thread.currentThread().getContextClassLoader();
-    try {
-      if (runsAsAnOsgiBundle) {
-        // override the context class loader with the CachingManager's classloader
-        Thread.currentThread().setContextClassLoader(getClassLoader());
-      }
-      CacheProxy<K, V> cache = getCache(cacheName);
-      if (cache == null) {
-        return null;
-      }
-
-      @SuppressWarnings("unchecked")
-      var config = cache.getConfiguration(CompleteConfiguration.class);
-      if (keyType != config.getKeyType()) {
-        throw new ClassCastException("Incompatible cache key types specified, expected "
-            + config.getKeyType() + " but " + keyType + " was specified");
-      } else if (valueType != config.getValueType()) {
-        throw new ClassCastException("Incompatible cache value types specified, expected "
-            + config.getValueType() + " but " + valueType + " was specified");
-      }
-      return cache;
-    } finally {
-      Thread.currentThread().setContextClassLoader(classLoader);
+    @Override
+    public CachingProvider getCachingProvider() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  @Override
-  public <K, V> @Nullable CacheProxy<K, V> getCache(String cacheName) {
-    requireNonNull(cacheName);
-    var classLoader = Thread.currentThread().getContextClassLoader();
-    try {
-      if (runsAsAnOsgiBundle) {
-        // override the context class loader with the CachingManager's classloader
-        Thread.currentThread().setContextClassLoader(getClassLoader());
-      }
-
-      synchronized (lock) {
-        requireNotClosed();
-        CacheProxy<?, ?> cache = caches.computeIfAbsent(cacheName, name -> {
-          CacheProxy<?, ?> created = CacheFactory.tryToCreateFromExternalSettings(this, name);
-          if (created != null) {
-            @SuppressWarnings("unchecked")
-            var config = created.getConfiguration(CompleteConfiguration.class);
-            created.enableManagement(config.isManagementEnabled());
-            created.enableStatistics(config.isStatisticsEnabled());
-          }
-          return created;
-        });
-
-        @SuppressWarnings("unchecked")
-        var castedCache = (CacheProxy<K, V>) cache;
-        return castedCache;
-      }
-    } finally {
-      Thread.currentThread().setContextClassLoader(classLoader);
+    @Override
+    public URI getURI() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  @Override
-  public Collection<String> getCacheNames() {
-    requireNotClosed();
-    return Collections.unmodifiableCollection(new ArrayList<>(caches.keySet()));
-  }
-
-  @Override
-  public void destroyCache(String cacheName) {
-    requireNotClosed();
-
-    Cache<?, ?> cache = caches.remove(cacheName);
-    if (cache != null) {
-      cache.close();
+    @Override
+    @Nullable
+    public ClassLoader getClassLoader() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  @Override
-  public void enableManagement(String cacheName, boolean enabled) {
-    requireNotClosed();
-
-    CacheProxy<?, ?> cache = caches.get(cacheName);
-    if (cache == null) {
-      return;
+    @Override
+    public Properties getProperties() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    cache.enableManagement(enabled);
-  }
 
-  @Override
-  public void enableStatistics(String cacheName, boolean enabled) {
-    requireNotClosed();
-
-    CacheProxy<?, ?> cache = caches.get(cacheName);
-    if (cache == null) {
-      return;
+    @Override
+    public <K, V, C extends Configuration<K, V>> Cache<K, V> createCache(String cacheName, C configuration) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    cache.enableStatistics(enabled);
-  }
 
-  @Override
-  public void close() {
-    if (isClosed()) {
-      return;
+    @Override
+    @Nullable
+    public <K, V> Cache<K, V> getCache(String cacheName, Class<K> keyType, Class<V> valueType) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    synchronized (lock) {
-      if (!isClosed()) {
-        for (Cache<?, ?> cache : caches.values()) {
-          cache.close();
+
+    @Override
+    @Nullable
+    public <K, V> CacheProxy<K, V> getCache(String cacheName) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public Collection<String> getCacheNames() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public void destroyCache(String cacheName) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public void enableManagement(String cacheName, boolean enabled) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public void enableStatistics(String cacheName, boolean enabled) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public void close() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public boolean isClosed() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public <T> T unwrap(Class<T> clazz) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    /**
+     * Checks that the cache manager is not closed.
+     */
+    private void requireNotClosed() {
+        if (isClosed()) {
+            throw new IllegalStateException();
         }
-        closed = true;
-        cacheProvider.close(uri, classLoaderReference.get());
-      }
     }
-  }
-
-  @Override
-  public boolean isClosed() {
-    return closed;
-  }
-
-  @Override
-  public <T> T unwrap(Class<T> clazz) {
-    if (clazz.isInstance(this)) {
-      return clazz.cast(this);
-    }
-    throw new IllegalArgumentException("Unwrapping to " + clazz
-        + " is not a supported by this implementation");
-  }
-
-  /** Checks that the cache manager is not closed. */
-  private void requireNotClosed() {
-    if (isClosed()) {
-      throw new IllegalStateException();
-    }
-  }
 }

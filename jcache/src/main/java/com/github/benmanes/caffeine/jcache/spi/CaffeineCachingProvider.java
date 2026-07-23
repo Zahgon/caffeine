@@ -16,7 +16,6 @@
 package com.github.benmanes.caffeine.jcache.spi;
 
 import static javax.cache.configuration.OptionalFeature.STORE_BY_REFERENCE;
-
 import java.io.IOException;
 import java.net.URI;
 import java.net.URL;
@@ -27,17 +26,14 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.WeakHashMap;
-
 import javax.cache.CacheManager;
 import javax.cache.Caching;
 import javax.cache.configuration.OptionalFeature;
 import javax.cache.spi.CachingProvider;
-
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
-
 import com.github.benmanes.caffeine.jcache.CacheManagerImpl;
 import com.google.errorprone.annotations.Var;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
@@ -57,220 +53,113 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 @Component
 @NullMarked
 public final class CaffeineCachingProvider implements CachingProvider {
-  private static final ClassLoader DEFAULT_CLASS_LOADER =
-      new JCacheClassLoader(Thread.currentThread().getContextClassLoader());
 
-  @GuardedBy("itself")
-  final Map<ClassLoader, Map<URI, CacheManager>> cacheManagers;
+    private static final ClassLoader DEFAULT_CLASS_LOADER = new JCacheClassLoader(Thread.currentThread().getContextClassLoader());
 
-  boolean isOsgiComponent;
+    @GuardedBy("itself")
+    final Map<ClassLoader, Map<URI, CacheManager>> cacheManagers;
 
-  public CaffeineCachingProvider() {
-    this.cacheManagers = new WeakHashMap<>(1);
-  }
+    boolean isOsgiComponent;
 
-  @Override
-  public ClassLoader getDefaultClassLoader() {
-    return DEFAULT_CLASS_LOADER;
-  }
-
-  @Override
-  public URI getDefaultURI() {
-    return URI.create(getClass().getName());
-  }
-
-  @Override
-  public Properties getDefaultProperties() {
-    return new Properties();
-  }
-
-  @Override
-  public CacheManager getCacheManager() {
-    return getCacheManager(getDefaultURI(), getDefaultClassLoader());
-  }
-
-  @Override
-  public CacheManager getCacheManager(URI uri, ClassLoader classLoader) {
-    return getCacheManager(uri, classLoader, getDefaultProperties());
-  }
-
-  @Override
-  public CacheManager getCacheManager(URI uri,
-      ClassLoader classLoader, @Nullable Properties properties) {
-    URI managerUri = getManagerUri(uri);
-    ClassLoader managerClassLoader = getManagerClassLoader(classLoader);
-
-    synchronized (cacheManagers) {
-      Map<URI, CacheManager> cacheManagersByUri = cacheManagers.computeIfAbsent(
-          managerClassLoader, any -> new HashMap<>());
-      return cacheManagersByUri.computeIfAbsent(managerUri, any -> {
-        Properties managerProperties = (properties == null) ? getDefaultProperties() : properties;
-        return new CacheManagerImpl(this, isOsgiComponent,
-            managerUri, managerClassLoader, managerProperties);
-      });
-    }
-  }
-
-  @Override
-  public void close() {
-    synchronized (cacheManagers) {
-      for (ClassLoader classLoader : new ArrayList<>(cacheManagers.keySet())) {
-        close(classLoader);
-      }
-    }
-  }
-
-  @Override
-  @SuppressWarnings("PMD.CloseResource")
-  public void close(ClassLoader classLoader) {
-    synchronized (cacheManagers) {
-      ClassLoader managerClassLoader = getManagerClassLoader(classLoader);
-      Map<URI, CacheManager> cacheManagersByUri = cacheManagers.remove(managerClassLoader);
-      if (cacheManagersByUri != null) {
-        for (CacheManager cacheManager : cacheManagersByUri.values()) {
-          cacheManager.close();
-        }
-      }
-    }
-  }
-
-  @Override
-  @SuppressWarnings("PMD.CloseResource")
-  public void close(URI uri, ClassLoader classLoader) {
-    synchronized (cacheManagers) {
-      ClassLoader managerClassLoader = getManagerClassLoader(classLoader);
-      Map<URI, CacheManager> cacheManagersByUri = cacheManagers.get(managerClassLoader);
-
-      if (cacheManagersByUri != null) {
-        CacheManager cacheManager = cacheManagersByUri.remove(getManagerUri(uri));
-        if (cacheManager != null) {
-          cacheManager.close();
-        }
-        if (cacheManagersByUri.isEmpty()) {
-          cacheManagers.remove(managerClassLoader);
-        }
-      }
-    }
-  }
-
-  @Override
-  public boolean isSupported(OptionalFeature optionalFeature) {
-    return (optionalFeature == STORE_BY_REFERENCE);
-  }
-
-  private URI getManagerUri(@Nullable URI uri) {
-    return (uri == null) ? getDefaultURI() : uri;
-  }
-
-  private ClassLoader getManagerClassLoader(@Nullable ClassLoader classLoader) {
-    return (classLoader == null) ? getDefaultClassLoader() : classLoader;
-  }
-
-  /**
-   * A {@link ClassLoader} that combines {@code Thread.currentThread().getContextClassLoader()}
-   * and {@code getClass().getClassLoader()}.
-   */
-  static class JCacheClassLoader extends ClassLoader {
-
-    public JCacheClassLoader(@Nullable ClassLoader parent) {
-      super(parent);
+    public CaffeineCachingProvider() {
+        this.cacheManagers = new WeakHashMap<>(1);
     }
 
     @Override
-    public Class<?> loadClass(String name) throws ClassNotFoundException {
-      @Var ClassNotFoundException error = null;
-
-      ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
-      if ((contextClassLoader != null) && (contextClassLoader != DEFAULT_CLASS_LOADER)) {
-        try {
-          return contextClassLoader.loadClass(name);
-        } catch (ClassNotFoundException e) {
-          error = e;
-        }
-      }
-
-      ClassLoader classClassLoader = getClassClassLoader();
-      if ((classClassLoader != null) && (classClassLoader != contextClassLoader)) {
-        try {
-          return classClassLoader.loadClass(name);
-        } catch (ClassNotFoundException e) {
-          error = e;
-        }
-      }
-
-      ClassLoader parentClassLoader = getParent();
-      if ((parentClassLoader != null)
-          && (parentClassLoader != classClassLoader)
-          && (parentClassLoader != contextClassLoader)) {
-        try {
-          return parentClassLoader.loadClass(name);
-        } catch (ClassNotFoundException e) {
-          error = e;
-        }
-      }
-      throw (error == null) ? new ClassNotFoundException(name) : error;
+    public ClassLoader getDefaultClassLoader() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public @Nullable URL getResource(String name) {
-      ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
-      if ((contextClassLoader != null) && (contextClassLoader != DEFAULT_CLASS_LOADER)) {
-        URL resource = contextClassLoader.getResource(name);
-        if (resource != null) {
-          return resource;
-        }
-      }
-
-      ClassLoader classClassLoader = getClassClassLoader();
-      if ((classClassLoader != null) && (classClassLoader != contextClassLoader)) {
-        URL resource = classClassLoader.getResource(name);
-        if (resource != null) {
-          return resource;
-        }
-      }
-
-      ClassLoader parentClassLoader = getParent();
-      if ((parentClassLoader != null)
-          && (parentClassLoader != classClassLoader)
-          && (parentClassLoader != contextClassLoader)) {
-        return parentClassLoader.getResource(name);
-      }
-
-      return null;
+    public URI getDefaultURI() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public Enumeration<URL> getResources(String name) throws IOException {
-      var resources = new ArrayList<URL>();
-
-      ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
-      if ((contextClassLoader != null) && contextClassLoader != DEFAULT_CLASS_LOADER) {
-        resources.addAll(Collections.list(contextClassLoader.getResources(name)));
-      }
-
-      ClassLoader classClassLoader = getClassClassLoader();
-      if ((classClassLoader != null) && (classClassLoader != contextClassLoader)) {
-        resources.addAll(Collections.list(classClassLoader.getResources(name)));
-      }
-
-      ClassLoader parentClassLoader = getParent();
-      if ((parentClassLoader != null)
-          && (parentClassLoader != classClassLoader)
-          && (parentClassLoader != contextClassLoader)) {
-        resources.addAll(Collections.list(parentClassLoader.getResources(name)));
-      }
-
-      return Collections.enumeration(resources);
+    public Properties getDefaultProperties() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
-    @Nullable ClassLoader getClassClassLoader() {
-      return getClass().getClassLoader();
+    @Override
+    public CacheManager getCacheManager() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  @Activate
-  @SuppressWarnings("unused")
-  private void activate() {
-    isOsgiComponent = true;
-  }
+    @Override
+    public CacheManager getCacheManager(URI uri, ClassLoader classLoader) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public CacheManager getCacheManager(URI uri, ClassLoader classLoader, @Nullable Properties properties) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public void close() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    @SuppressWarnings("PMD.CloseResource")
+    public void close(ClassLoader classLoader) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    @SuppressWarnings("PMD.CloseResource")
+    public void close(URI uri, ClassLoader classLoader) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public boolean isSupported(OptionalFeature optionalFeature) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    private URI getManagerUri(@Nullable URI uri) {
+        return (uri == null) ? getDefaultURI() : uri;
+    }
+
+    private ClassLoader getManagerClassLoader(@Nullable ClassLoader classLoader) {
+        return (classLoader == null) ? getDefaultClassLoader() : classLoader;
+    }
+
+    /**
+     * A {@link ClassLoader} that combines {@code Thread.currentThread().getContextClassLoader()}
+     * and {@code getClass().getClassLoader()}.
+     */
+    static class JCacheClassLoader extends ClassLoader {
+
+        public JCacheClassLoader(@Nullable ClassLoader parent) {
+            super(parent);
+        }
+
+        @Override
+        public Class<?> loadClass(String name) throws ClassNotFoundException {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        @Nullable
+        public URL getResource(String name) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public Enumeration<URL> getResources(String name) throws IOException {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Nullable
+        ClassLoader getClassClassLoader() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
+
+    @Activate
+    @SuppressWarnings("unused")
+    private void activate() {
+        isOsgiComponent = true;
+    }
 }

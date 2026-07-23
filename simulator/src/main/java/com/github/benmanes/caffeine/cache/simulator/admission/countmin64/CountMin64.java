@@ -15,9 +15,7 @@ package com.github.benmanes.caffeine.cache.simulator.admission.countmin64;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-
 import java.util.Random;
-
 import com.google.errorprone.annotations.Var;
 
 /**
@@ -27,83 +25,74 @@ import com.google.errorprone.annotations.Var;
  * provided by <a href="https://github.com/addthis/stream-lib">StreamLib</a>.
  */
 final class CountMin64 {
-  static final long PRIME_MODULUS = (1L << 31) - 1;
 
-  final long[][] table;
-  final long[] hashA;
-  final int depth;
-  final int width;
+    static final long PRIME_MODULUS = (1L << 31) - 1;
 
-  public CountMin64(double eps, double confidence, int seed) {
-    // 2/w = eps ; w = 2/eps
-    // 1/2^depth <= 1-confidence ; depth >= -log2 (1-confidence)
-    this.width = (int) Math.ceil(2 / eps);
-    this.depth = (int) Math.ceil(-Math.log(1 - confidence) / Math.log(2));
-    this.table = new long[depth][width];
-    this.hashA = new long[depth];
-    checkState(width > 0);
-    checkState(depth > 0);
+    final long[][] table;
 
-    // We're using a linear hash functions of the form ((a*x+b) mod p) where a,b are chosen
-    // independently for each hash function. However, we can set b = 0 as all it does is shift the
-    // results without compromising their uniformity or independence with the other hashes.
-    var random = new Random(seed);
-    for (int i = 0; i < depth; ++i) {
-      hashA[i] = random.nextInt(Integer.MAX_VALUE);
+    final long[] hashA;
+
+    final int depth;
+
+    final int width;
+
+    public CountMin64(double eps, double confidence, int seed) {
+        // 2/w = eps ; w = 2/eps
+        // 1/2^depth <= 1-confidence ; depth >= -log2 (1-confidence)
+        this.width = (int) Math.ceil(2 / eps);
+        this.depth = (int) Math.ceil(-Math.log(1 - confidence) / Math.log(2));
+        this.table = new long[depth][width];
+        this.hashA = new long[depth];
+        checkState(width > 0);
+        checkState(depth > 0);
+        // We're using a linear hash functions of the form ((a*x+b) mod p) where a,b are chosen
+        // independently for each hash function. However, we can set b = 0 as all it does is shift the
+        // results without compromising their uniformity or independence with the other hashes.
+        var random = new Random(seed);
+        for (int i = 0; i < depth; ++i) {
+            hashA[i] = random.nextInt(Integer.MAX_VALUE);
+        }
     }
-  }
 
-  /** The estimate is correct within epsilon * (total item count), with probability confidence. */
-  public long estimateCount(long item) {
-    @Var long count = Long.MAX_VALUE;
-    for (int i = 0; i < depth; ++i) {
-      count = Math.min(count, table[i][hash(item, i)]);
+    public long estimateCount(long item) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    return count;
-  }
 
-  public void add(long item, long count, boolean conservative) {
-    // Actually for negative increments we'll need to use the median instead of minimum, and
-    // accuracy will suffer somewhat. Probably makes sense to add an "allow negative increments"
-    // parameter to constructor.
-    checkArgument(count >= 0, "Negative increments not implemented");
+    public void add(long item, long count, boolean conservative) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-    if (conservative) {
-      conservativeAdd(item, count);
-    } else {
-      add(item, count);
+    private void add(long item, long count) {
+        for (int i = 0; i < depth; ++i) {
+            table[i][hash(item, i)] += count;
+        }
     }
-  }
 
-  private void add(long item, long count) {
-    for (int i = 0; i < depth; ++i) {
-      table[i][hash(item, i)] += count;
+    private void conservativeAdd(long item, long count) {
+        int[] buckets = new int[depth];
+        for (int i = 0; i < depth; ++i) {
+            buckets[i] = hash(item, i);
+        }
+        @Var
+        long min = table[0][buckets[0]];
+        for (int i = 1; i < depth; ++i) {
+            min = Math.min(min, table[i][buckets[i]]);
+        }
+        for (int i = 0; i < depth; ++i) {
+            long newVal = Math.max(table[i][buckets[i]], min + count);
+            table[i][buckets[i]] = newVal;
+        }
     }
-  }
 
-  private void conservativeAdd(long item, long count) {
-    int[] buckets = new int[depth];
-    for (int i = 0; i < depth; ++i) {
-      buckets[i] = hash(item, i);
+    private int hash(long item, int i) {
+        @Var
+        long hash = hashA[i] * item;
+        // A super fast way of computing x mod 2^p-1
+        // See https://www.cs.princeton.edu/courses/archive/fall09/cos521/Handouts/universalclasses.pdf
+        // page 149, right after Proposition 7.
+        hash += hash >> 32;
+        hash &= PRIME_MODULUS;
+        // Doing "%" after (int) conversion is ~2x faster than %'ing longs.
+        return ((int) hash) % width;
     }
-    @Var long min = table[0][buckets[0]];
-    for (int i = 1; i < depth; ++i) {
-      min = Math.min(min, table[i][buckets[i]]);
-    }
-    for (int i = 0; i < depth; ++i) {
-      long newVal = Math.max(table[i][buckets[i]], min + count);
-      table[i][buckets[i]] = newVal;
-    }
-  }
-
-  private int hash(long item, int i) {
-    @Var long hash = hashA[i] * item;
-    // A super fast way of computing x mod 2^p-1
-    // See https://www.cs.princeton.edu/courses/archive/fall09/cos521/Handouts/universalclasses.pdf
-    // page 149, right after Proposition 7.
-    hash += hash >> 32;
-    hash &= PRIME_MODULUS;
-    // Doing "%" after (int) conversion is ~2x faster than %'ing longs.
-    return ((int) hash) % width;
-  }
 }

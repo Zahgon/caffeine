@@ -21,14 +21,11 @@
 package com.github.benmanes.caffeine.cache;
 
 import static com.github.benmanes.caffeine.cache.Caffeine.ceilingPowerOfTwo;
-
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.util.Arrays;
 import java.util.function.Consumer;
-
 import org.jspecify.annotations.Nullable;
-
 import com.google.errorprone.annotations.Var;
 
 /**
@@ -41,7 +38,8 @@ import com.google.errorprone.annotations.Var;
  * @author ben.manes@gmail.com (Ben Manes)
  */
 abstract class StripedBuffer<E> implements Buffer<E> {
-  /*
+
+    /*
    * This class maintains a lazily-initialized table of atomically updated buffers. The table size
    * is a power of two. Indexing uses masked per-thread hash codes. Nearly all declarations in this
    * class are package-private, accessed directly by subclasses.
@@ -85,197 +83,75 @@ abstract class StripedBuffer<E> implements Buffer<E> {
    * instances, observed contention levels will recur, so the buffers will eventually be needed
    * again; and for short-lived ones, it does not matter.
    */
+    static final VarHandle TABLE_BUSY = findVarHandle(StripedBuffer.class, "tableBusy", int.class);
 
-  static final VarHandle TABLE_BUSY = findVarHandle(StripedBuffer.class, "tableBusy", int.class);
+    /**
+     * Number of CPUS.
+     */
+    static final int NCPU = Runtime.getRuntime().availableProcessors();
 
-  /** Number of CPUS. */
-  static final int NCPU = Runtime.getRuntime().availableProcessors();
+    /**
+     * The bound on the table size.
+     */
+    static final int MAXIMUM_TABLE_SIZE = 4 * ceilingPowerOfTwo(NCPU);
 
-  /** The bound on the table size. */
-  static final int MAXIMUM_TABLE_SIZE = 4 * ceilingPowerOfTwo(NCPU);
+    /**
+     * The maximum number of attempts when trying to expand the table.
+     */
+    static final int ATTEMPTS = 3;
 
-  /** The maximum number of attempts when trying to expand the table. */
-  static final int ATTEMPTS = 3;
+    /**
+     * Table of buffers. When non-null, size is a power of 2.
+     */
+    volatile Buffer<E> @Nullable [] table;
 
-  /** Table of buffers. When non-null, size is a power of 2. */
-  volatile Buffer<E> @Nullable[] table;
+    /**
+     * Spinlock (locked via CAS) used when resizing and/or creating Buffers.
+     */
+    volatile int tableBusy;
 
-  /** Spinlock (locked via CAS) used when resizing and/or creating Buffers. */
-  volatile int tableBusy;
-
-  /** CASes the tableBusy field from 0 to 1 to acquire lock. */
-  final boolean casTableBusy() {
-    return TABLE_BUSY.compareAndSet(this, 0, 1);
-  }
-
-  /**
-   * Creates a new buffer instance after resizing to accommodate a producer.
-   *
-   * @param e the producer's element
-   * @return a newly created buffer populated with a single element
-   */
-  protected abstract Buffer<E> create(E e);
-
-  @Override
-  @SuppressWarnings("Varifier")
-  public int offer(E e) {
-    @SuppressWarnings("deprecation")
-    long z = mix64(Thread.currentThread().getId());
-    int increment = ((int) (z >>> 32)) | 1;
-    int h = (int) z;
-
-    int mask;
-    int result;
-    Buffer<E> buffer;
-    @Var boolean uncontended = true;
-    @Nullable Buffer<E>[] buffers = table;
-    if ((buffers == null)
-        || ((mask = buffers.length - 1) < 0)
-        || ((buffer = buffers[h & mask]) == null)
-        || !(uncontended = ((result = buffer.offer(e)) != Buffer.FAILED))) {
-      return expandOrRetry(e, h, increment, uncontended);
+    final boolean casTableBusy() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    return result;
-  }
 
-  /**
-   * Handles cases of updates involving initialization, resizing, creating new Buffers, and/or
-   * contention. See above for explanation. This method suffers the usual non-modularity problems of
-   * optimistic retry code, relying on rechecked sets of reads.
-   *
-   * @param e the element to add
-   * @param h the thread's hash
-   * @param increment the amount to increment by when rehashing
-   * @param wasUncontended false if CAS failed before this call
-   * @return {@code Buffer.SUCCESS}, {@code Buffer.FAILED}, or {@code Buffer.FULL}
-   */
-  final int expandOrRetry(E e, @Var int h, int increment, @Var boolean wasUncontended) {
-    @Var int result = Buffer.FAILED;
-    @Var boolean collide = false; // True if last slot nonempty
-    for (int attempt = 0; attempt < ATTEMPTS; attempt++) {
-      @Nullable Buffer<E>[] buffers;
-      Buffer<E> buffer;
-      int n;
-      if (((buffers = table) != null) && ((n = buffers.length) > 0)) {
-        if ((buffer = buffers[(n - 1) & h]) == null) {
-          if ((tableBusy == 0) && casTableBusy()) { // Try to attach new Buffer
-            @Var boolean created = false;
-            try { // Recheck under lock
-              @Nullable Buffer<E>[] rs;
-              int mask;
-              int j;
-              if (((rs = table) != null) && ((mask = rs.length) > 0)
-                  && (rs[j = (mask - 1) & h] == null)) {
-                rs[j] = create(e);
-                created = true;
-              }
-            } finally {
-              tableBusy = 0;
-            }
-            if (created) {
-              result = Buffer.SUCCESS;
-              break;
-            }
-            continue; // Slot is now non-empty
-          }
-          collide = false;
-        } else if (!wasUncontended) { // CAS already known to fail
-          wasUncontended = true;      // Continue after rehash
-        } else if ((result = buffer.offer(e)) != Buffer.FAILED) {
-          break;
-        } else if ((n >= MAXIMUM_TABLE_SIZE) || (table != buffers)) {
-          collide = false; // At max size or stale
-        } else if (!collide) {
-          collide = true;
-        } else if ((tableBusy == 0) && casTableBusy()) {
-          try {
-            if (table == buffers) { // Expand table unless stale
-              table = Arrays.copyOf(buffers, n << 1);
-            }
-          } finally {
-            tableBusy = 0;
-          }
-          collide = false;
-          continue; // Retry with expanded table
-        }
-        h += increment;
-      } else if ((tableBusy == 0) && (table == buffers) && casTableBusy()) {
-        @Var boolean init = false;
-        try { // Initialize table
-          if (table == buffers) {
-            @SuppressWarnings({"rawtypes", "unchecked"})
-            Buffer<E>[] rs = new Buffer[1];
-            rs[0] = create(e);
-            table = rs;
-            init = true;
-          }
-        } finally {
-          tableBusy = 0;
-        }
-        if (init) {
-          result = Buffer.SUCCESS;
-          break;
-        }
-      }
-    }
-    return result;
-  }
+    /**
+     * Creates a new buffer instance after resizing to accommodate a producer.
+     *
+     * @param e the producer's element
+     * @return a newly created buffer populated with a single element
+     */
+    protected abstract Buffer<E> create(E e);
 
-  @Override
-  public void drainTo(Consumer<E> consumer) {
-    @Nullable Buffer<E>[] buffers = table;
-    if (buffers == null) {
-      return;
+    @Override
+    @SuppressWarnings("Varifier")
+    public int offer(E e) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    for (Buffer<E> buffer : buffers) {
-      if (buffer != null) {
-        buffer.drainTo(consumer);
-      }
-    }
-  }
 
-  @Override
-  public long reads() {
-    @Nullable Buffer<E>[] buffers = table;
-    if (buffers == null) {
-      return 0;
+    final int expandOrRetry(E e, @Var int h, int increment, @Var boolean wasUncontended) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    @Var long reads = 0;
-    for (Buffer<E> buffer : buffers) {
-      if (buffer != null) {
-        reads += buffer.reads();
-      }
-    }
-    return reads;
-  }
 
-  @Override
-  public long writes() {
-    @Nullable Buffer<E>[] buffers = table;
-    if (buffers == null) {
-      return 0;
+    @Override
+    public void drainTo(Consumer<E> consumer) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    @Var long writes = 0;
-    for (Buffer<E> buffer : buffers) {
-      if (buffer != null) {
-        writes += buffer.writes();
-      }
-    }
-    return writes;
-  }
 
-  /** Computes Stafford variant 13 of 64-bit mix function. */
-  static long mix64(@Var long z) {
-    z = (z ^ (z >>> 30)) * 0xbf58476d1ce4e5b9L;
-    z = (z ^ (z >>> 27)) * 0x94d049bb133111ebL;
-    return z ^ (z >>> 31);
-  }
-
-  static VarHandle findVarHandle(Class<?> recv, String name, Class<?> type) {
-    try {
-      return MethodHandles.lookup().findVarHandle(recv, name, type);
-    } catch (ReflectiveOperationException e) {
-      throw new ExceptionInInitializerError(e);
+    @Override
+    public long reads() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
+
+    @Override
+    public long writes() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    static long mix64(@Var long z) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    static VarHandle findVarHandle(Class<?> recv, String name, Class<?> type) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

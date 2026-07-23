@@ -19,12 +19,9 @@ import static com.github.benmanes.caffeine.cache.simulator.policy.Policy.Charact
 import static java.util.Locale.US;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toUnmodifiableSet;
-
 import java.util.Set;
-
 import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.Nullable;
-
 import com.github.benmanes.caffeine.cache.simulator.BasicSettings;
 import com.github.benmanes.caffeine.cache.simulator.admission.Admission;
 import com.github.benmanes.caffeine.cache.simulator.admission.Admitter;
@@ -34,7 +31,6 @@ import com.github.benmanes.caffeine.cache.simulator.policy.Policy.PolicySpec;
 import com.github.benmanes.caffeine.cache.simulator.policy.PolicyStats;
 import com.google.common.base.MoreObjects;
 import com.typesafe.config.Config;
-
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 
@@ -46,242 +42,217 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
  */
 @PolicySpec(characteristics = WEIGHTED)
 public final class LinkedPolicy implements Policy {
-  final Long2ObjectMap<Node> data;
-  final PolicyStats policyStats;
-  final EvictionPolicy policy;
-  final Admitter admitter;
-  final long maximumSize;
-  final boolean weighted;
-  final Node sentinel;
 
-  long currentSize;
+    final Long2ObjectMap<Node> data;
 
-  public LinkedPolicy(Config config, Set<Characteristic> characteristics,
-      Admission admission, EvictionPolicy policy) {
-    this.policyStats = new PolicyStats(admission.format(policy.label()));
-    this.admitter = admission.from(config, policyStats);
-    this.weighted = characteristics.contains(WEIGHTED);
+    final PolicyStats policyStats;
 
-    var settings = new BasicSettings(config);
-    this.data = new Long2ObjectOpenHashMap<>();
-    this.maximumSize = settings.maximumSize();
-    this.sentinel = new Node();
-    this.policy = policy;
-  }
+    final EvictionPolicy policy;
 
-  /** Returns all variations of this policy based on the configuration parameters. */
-  public static Set<Policy> policies(Config config,
-      Set<Characteristic> characteristics, EvictionPolicy policy) {
-    var settings = new BasicSettings(config);
-    return settings.admission().stream().map(admission ->
-      new LinkedPolicy(config, characteristics, admission, policy)
-    ).collect(toUnmodifiableSet());
-  }
+    final Admitter admitter;
 
-  @Override
-  public PolicyStats stats() {
-    return policyStats;
-  }
+    final long maximumSize;
 
-  @Override
-  public void record(AccessEvent event) {
-    int weight = weighted ? event.weight() : 1;
-    long key = event.key();
-    @Nullable Node old = data.get(key);
-    admitter.record(key);
-    if (old == null) {
-      policyStats.recordWeightedMiss(weight);
-      if (weight > maximumSize) {
-        policyStats.recordOperation();
-        return;
-      }
-      var node = new Node(key, weight, sentinel);
-      data.put(key, node);
-      currentSize += node.weight;
-      node.appendToTail();
-      evict(node);
-    } else {
-      policyStats.recordWeightedHit(weight);
-      currentSize += (weight - old.weight);
-      old.weight = weight;
+    final boolean weighted;
 
-      policy.onAccess(old, policyStats);
-      evict(old);
-    }
-  }
-
-  /** Evicts while the map exceeds the maximum capacity. */
-  private void evict(Node candidate) {
-    if (currentSize > maximumSize) {
-      while (currentSize > maximumSize) {
-        if (candidate.weight > maximumSize) {
-          evictEntry(candidate);
-          continue;
-        }
-
-        Node victim = policy.findVictim(sentinel, policyStats);
-        boolean admit = admitter.admit(candidate.key, victim.key);
-        if (admit) {
-          evictEntry(victim);
-        } else {
-          evictEntry(candidate);
-        }
-      }
-    } else {
-      policyStats.recordOperation();
-    }
-  }
-
-  private void evictEntry(Node node) {
-    policyStats.recordEviction();
-    currentSize -= node.weight;
-    data.remove(node.key);
-    node.remove();
-  }
-
-  /** The replacement policy. */
-  public enum EvictionPolicy {
-
-    /** Evicts entries based on insertion order. */
-    FIFO {
-      @Override void onAccess(Node node, PolicyStats policyStats) {
-        policyStats.recordOperation();
-        // do nothing
-      }
-      @Override Node findVictim(Node sentinel, PolicyStats policyStats) {
-        policyStats.recordOperation();
-        return requireNonNull(sentinel.next);
-      }
-    },
-
-    /**
-     * Evicts entries based on insertion order, but gives an entry a "second chance" if it has been
-     * requested recently.
-     */
-    CLOCK {
-      @Override void onAccess(Node node, PolicyStats policyStats) {
-        policyStats.recordOperation();
-        node.marked = true;
-      }
-      @Override Node findVictim(Node sentinel, PolicyStats policyStats) {
-        for (;;) {
-          policyStats.recordOperation();
-          Node node = requireNonNull(sentinel.next);
-          if (node.marked) {
-            node.moveToTail();
-            node.marked = false;
-          } else {
-            return node;
-          }
-        }
-      }
-    },
-
-    /** Evicts entries based on how recently they are used, with the most recent evicted first. */
-    MRU {
-      @Override void onAccess(Node node, PolicyStats policyStats) {
-        policyStats.recordOperation();
-        node.moveToTail();
-      }
-      @Override Node findVictim(Node sentinel, PolicyStats policyStats) {
-        policyStats.recordOperation();
-        // Skip over the added entry
-        return requireNonNull(requireNonNull(sentinel.prev).prev);
-      }
-    },
-
-    /** Evicts entries based on how recently they are used, with the least recent evicted first. */
-    LRU {
-      @Override void onAccess(Node node, PolicyStats policyStats) {
-        policyStats.recordOperation();
-        node.moveToTail();
-      }
-      @Override Node findVictim(Node sentinel, PolicyStats policyStats) {
-        policyStats.recordOperation();
-        return requireNonNull(sentinel.next);
-      }
-    };
-
-    public String label() {
-      return "linked." + StringUtils.capitalize(name().toLowerCase(US));
-    }
-
-    /** Performs any operations required by the policy after a node was successfully retrieved. */
-    abstract void onAccess(Node node, PolicyStats policyStats);
-
-    /** Returns the victim entry to evict. */
-    abstract Node findVictim(Node sentinel, PolicyStats policyStats);
-  }
-
-  /** A node on the double-linked list. */
-  static final class Node {
     final Node sentinel;
 
-    @Nullable Node prev;
-    @Nullable Node next;
+    long currentSize;
 
-    long key;
-    int weight;
-    boolean marked;
-
-    /** Creates a new sentinel node. */
-    public Node() {
-      this.key = Long.MIN_VALUE;
-      this.sentinel = this;
-      this.prev = this;
-      this.next = this;
+    public LinkedPolicy(Config config, Set<Characteristic> characteristics, Admission admission, EvictionPolicy policy) {
+        this.policyStats = new PolicyStats(admission.format(policy.label()));
+        this.admitter = admission.from(config, policyStats);
+        this.weighted = characteristics.contains(WEIGHTED);
+        var settings = new BasicSettings(config);
+        this.data = new Long2ObjectOpenHashMap<>();
+        this.maximumSize = settings.maximumSize();
+        this.sentinel = new Node();
+        this.policy = policy;
     }
 
-    /** Creates a new, unlinked node. */
-    public Node(long key, int weight, Node sentinel) {
-      this.sentinel = sentinel;
-      this.weight = weight;
-      this.key = key;
-    }
-
-    /** Appends the node to the tail of the list. */
-    public void appendToTail() {
-      Node tail = requireNonNull(sentinel.prev);
-      sentinel.prev = this;
-      tail.next = this;
-      next = sentinel;
-      prev = tail;
-    }
-
-    /** Removes the node from the list. */
-    public void remove() {
-      requireNonNull(prev);
-      requireNonNull(next);
-
-      prev.next = next;
-      next.prev = prev;
-      prev = next = null;
-      key = Long.MIN_VALUE;
-    }
-
-    /** Moves the node to the tail. */
-    public void moveToTail() {
-      requireNonNull(prev);
-      requireNonNull(next);
-
-      // unlink
-      prev.next = next;
-      next.prev = prev;
-
-      // link
-      next = sentinel;
-      prev = requireNonNull(sentinel.prev);
-      sentinel.prev = this;
-      prev.next = this;
+    public static Set<Policy> policies(Config config, Set<Characteristic> characteristics, EvictionPolicy policy) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public String toString() {
-      return MoreObjects.toStringHelper(this)
-          .add("key", key)
-          .add("weight", weight)
-          .add("marked", marked)
-          .toString();
+    public PolicyStats stats() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
+
+    @Override
+    public void record(AccessEvent event) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    /**
+     * Evicts while the map exceeds the maximum capacity.
+     */
+    private void evict(Node candidate) {
+        if (currentSize > maximumSize) {
+            while (currentSize > maximumSize) {
+                if (candidate.weight > maximumSize) {
+                    evictEntry(candidate);
+                    continue;
+                }
+                Node victim = policy.findVictim(sentinel, policyStats);
+                boolean admit = admitter.admit(candidate.key, victim.key);
+                if (admit) {
+                    evictEntry(victim);
+                } else {
+                    evictEntry(candidate);
+                }
+            }
+        } else {
+            policyStats.recordOperation();
+        }
+    }
+
+    private void evictEntry(Node node) {
+        policyStats.recordEviction();
+        currentSize -= node.weight;
+        data.remove(node.key);
+        node.remove();
+    }
+
+    /**
+     * The replacement policy.
+     */
+    public enum EvictionPolicy {
+
+        /**
+         * Evicts entries based on insertion order.
+         */
+        FIFO {
+
+            @Override
+            void onAccess(Node node, PolicyStats policyStats) {
+                throw new UnsupportedOperationException("STUB: not implemented");
+            }
+
+            @Override
+            Node findVictim(Node sentinel, PolicyStats policyStats) {
+                throw new UnsupportedOperationException("STUB: not implemented");
+            }
+        }
+        ,
+        /**
+         * Evicts entries based on insertion order, but gives an entry a "second chance" if it has been
+         * requested recently.
+         */
+        CLOCK {
+
+            @Override
+            void onAccess(Node node, PolicyStats policyStats) {
+                throw new UnsupportedOperationException("STUB: not implemented");
+            }
+
+            @Override
+            Node findVictim(Node sentinel, PolicyStats policyStats) {
+                throw new UnsupportedOperationException("STUB: not implemented");
+            }
+        }
+        ,
+        /**
+         * Evicts entries based on how recently they are used, with the most recent evicted first.
+         */
+        MRU {
+
+            @Override
+            void onAccess(Node node, PolicyStats policyStats) {
+                throw new UnsupportedOperationException("STUB: not implemented");
+            }
+
+            @Override
+            Node findVictim(Node sentinel, PolicyStats policyStats) {
+                throw new UnsupportedOperationException("STUB: not implemented");
+            }
+        }
+        ,
+        /**
+         * Evicts entries based on how recently they are used, with the least recent evicted first.
+         */
+        LRU {
+
+            @Override
+            void onAccess(Node node, PolicyStats policyStats) {
+                throw new UnsupportedOperationException("STUB: not implemented");
+            }
+
+            @Override
+            Node findVictim(Node sentinel, PolicyStats policyStats) {
+                throw new UnsupportedOperationException("STUB: not implemented");
+            }
+        }
+        ;
+
+        public String label() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        /**
+         * Performs any operations required by the policy after a node was successfully retrieved.
+         */
+        abstract void onAccess(Node node, PolicyStats policyStats);
+
+        /**
+         * Returns the victim entry to evict.
+         */
+        abstract Node findVictim(Node sentinel, PolicyStats policyStats);
+    }
+
+    /**
+     * A node on the double-linked list.
+     */
+    static final class Node {
+
+        final Node sentinel;
+
+        @Nullable
+        Node prev;
+
+        @Nullable
+        Node next;
+
+        long key;
+
+        int weight;
+
+        boolean marked;
+
+        /**
+         * Creates a new sentinel node.
+         */
+        public Node() {
+            this.key = Long.MIN_VALUE;
+            this.sentinel = this;
+            this.prev = this;
+            this.next = this;
+        }
+
+        /**
+         * Creates a new, unlinked node.
+         */
+        public Node(long key, int weight, Node sentinel) {
+            this.sentinel = sentinel;
+            this.weight = weight;
+            this.key = key;
+        }
+
+        public void appendToTail() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public void remove() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public void moveToTail() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public String toString() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
 }

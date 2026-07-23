@@ -16,14 +16,11 @@
 package com.github.benmanes.caffeine.jcache.event;
 
 import static java.util.Objects.requireNonNull;
-
 import java.util.Iterator;
 import java.util.NoSuchElementException;
-
 import javax.cache.Cache;
 import javax.cache.event.CacheEntryEvent;
 import javax.cache.event.EventType;
-
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -32,72 +29,57 @@ import org.jspecify.annotations.Nullable;
  * @author ben.manes@gmail.com (Ben Manes)
  */
 @SuppressWarnings("serial")
-final class JCacheEntryEvent<K, V> extends CacheEntryEvent<K, V>
-    implements Iterable<CacheEntryEvent<? extends K, ? extends V>> {
-  private static final long serialVersionUID = 1L;
+final class JCacheEntryEvent<K, V> extends CacheEntryEvent<K, V> implements Iterable<CacheEntryEvent<? extends K, ? extends V>> {
 
-  private final K key;
-  private final boolean hasOldValue;
-  private final @Nullable V oldValue;
-  private final @Nullable V newValue;
+    private static final long serialVersionUID = 1L;
 
-  JCacheEntryEvent(Cache<K, V> source, EventType eventType,
-      K key, boolean hasOldValue, @Nullable V oldValue, @Nullable V newValue) {
-    super(source, eventType);
-    this.key = requireNonNull(key);
-    this.hasOldValue = hasOldValue;
-    this.oldValue = oldValue;
-    this.newValue = newValue;
-  }
+    private final K key;
 
-  @Override
-  public K getKey() {
-    return key;
-  }
+    private final boolean hasOldValue;
 
-  @Override
-  public @Nullable V getValue() {
-    return newValue;
-  }
+    @Nullable
+    private final V oldValue;
 
-  @Override
-  public @Nullable V getOldValue() {
-    return oldValue;
-  }
+    @Nullable
+    private final V newValue;
 
-  @Override
-  public boolean isOldValueAvailable() {
-    return hasOldValue;
-  }
-
-  @Override
-  public <T> T unwrap(Class<T> clazz) {
-    if (!clazz.isInstance(this)) {
-      throw new IllegalArgumentException("Class " + clazz + " is unknown to this implementation");
+    JCacheEntryEvent(Cache<K, V> source, EventType eventType, K key, boolean hasOldValue, @Nullable V oldValue, @Nullable V newValue) {
+        super(source, eventType);
+        this.key = requireNonNull(key);
+        this.hasOldValue = hasOldValue;
+        this.oldValue = oldValue;
+        this.newValue = newValue;
     }
-    @SuppressWarnings("unchecked")
-    var castedEntry = (T) this;
-    return castedEntry;
-  }
 
-  @Override
-  public Iterator<CacheEntryEvent<? extends K, ? extends V>> iterator() {
-    return new Iterator<>() {
-      boolean hasNext = true;
+    @Override
+    public K getKey() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-      @Override
-      public boolean hasNext() {
-        return hasNext;
-      }
+    @Override
+    @Nullable
+    public V getValue() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-      @Override
-      public CacheEntryEvent<K, V> next() {
-        if (!hasNext()) {
-          throw new NoSuchElementException();
-        }
-        hasNext = false;
-        return JCacheEntryEvent.this;
-      }
-    };
-  }
+    @Override
+    @Nullable
+    public V getOldValue() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public boolean isOldValueAvailable() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public <T> T unwrap(Class<T> clazz) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public Iterator<CacheEntryEvent<? extends K, ? extends V>> iterator() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

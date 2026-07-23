@@ -28,58 +28,62 @@ import com.typesafe.config.Config;
  * @author ben.manes@gmail.com (Ben Manes)
  */
 public final class AmsGrad extends AbstractClimber {
-  private final int stepSize;
-  private final double beta1;
-  private final double beta2;
-  private final double epsilon;
 
-  private double moment;
-  private double velocity;
-  private double maxVelocity;
+    private final int stepSize;
 
-  public AmsGrad(Config config) {
-    var settings = new AmsGradSettings(config);
-    int maximumSize = Math.toIntExact(settings.maximumSize());
-    sampleSize = (int) (settings.percentSample() * maximumSize);
-    stepSize = (int) (settings.percentPivot() * maximumSize);
-    epsilon = settings.epsilon();
-    beta1 = settings.beta1();
-    beta2 = settings.beta2();
-  }
+    private final double beta1;
 
-  @Override
-  protected double adjust(double hitRate) {
-    double currentMissRate = (1 - hitRate);
-    double previousMissRate = (1 - previousHitRate);
-    double gradient = currentMissRate - previousMissRate;
+    private final double beta2;
 
-    moment = (beta1 * moment) + ((1 - beta1) * gradient);
-    velocity = (beta2 * velocity) + ((1 - beta2) * (gradient * gradient));
-    maxVelocity = Math.max(velocity, maxVelocity);
+    private final double epsilon;
 
-    return (stepSize * moment) / (Math.sqrt(maxVelocity) + epsilon);
-  }
+    private double moment;
 
-  static final class AmsGradSettings extends BasicSettings {
-    static final String BASE_PATH = "hill-climber-window-tiny-lfu.amsgrad.";
+    private double velocity;
 
-    public AmsGradSettings(Config config) {
-      super(config);
+    private double maxVelocity;
+
+    public AmsGrad(Config config) {
+        var settings = new AmsGradSettings(config);
+        int maximumSize = Math.toIntExact(settings.maximumSize());
+        sampleSize = (int) (settings.percentSample() * maximumSize);
+        stepSize = (int) (settings.percentPivot() * maximumSize);
+        epsilon = settings.epsilon();
+        beta1 = settings.beta1();
+        beta2 = settings.beta2();
     }
-    public double percentPivot() {
-      return config().getDouble(BASE_PATH + "percent-pivot");
+
+    @Override
+    protected double adjust(double hitRate) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    public double percentSample() {
-      return config().getDouble(BASE_PATH + "percent-sample");
+
+    static final class AmsGradSettings extends BasicSettings {
+
+        static final String BASE_PATH = "hill-climber-window-tiny-lfu.amsgrad.";
+
+        public AmsGradSettings(Config config) {
+            super(config);
+        }
+
+        public double percentPivot() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public double percentSample() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public double beta1() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public double beta2() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public double epsilon() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
     }
-    public double beta1() {
-      return config().getDouble(BASE_PATH + "beta1");
-    }
-    public double beta2() {
-      return config().getDouble(BASE_PATH + "beta2");
-    }
-    public double epsilon() {
-      return config().getDouble(BASE_PATH + "epsilon");
-    }
-  }
 }

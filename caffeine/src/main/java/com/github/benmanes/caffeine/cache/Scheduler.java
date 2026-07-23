@@ -16,7 +16,6 @@
 package com.github.benmanes.caffeine.cache;
 
 import static java.util.Objects.requireNonNull;
-
 import java.io.Serializable;
 import java.lang.System.Logger;
 import java.lang.System.Logger.Level;
@@ -25,7 +24,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
@@ -38,165 +36,126 @@ import org.jspecify.annotations.Nullable;
 @FunctionalInterface
 public interface Scheduler {
 
-  /**
-   * Returns a future that will submit the task to the executor after the given delay.
-   *
-   * @param executor the executor to run the task
-   * @param command the runnable task to schedule
-   * @param delay how long to delay, in units of {@code unit}
-   * @param unit a {@code TimeUnit} determining how to interpret the {@code delay} parameter
-   * @return a scheduled future representing the pending submission of the task
-   */
-  Future<? extends @Nullable Object> schedule(
-      Executor executor, Runnable command, long delay, TimeUnit unit);
+    /**
+     * Returns a future that will submit the task to the executor after the given delay.
+     *
+     * @param executor the executor to run the task
+     * @param command the runnable task to schedule
+     * @param delay how long to delay, in units of {@code unit}
+     * @param unit a {@code TimeUnit} determining how to interpret the {@code delay} parameter
+     * @return a scheduled future representing the pending submission of the task
+     */
+    Future<? extends @Nullable Object> schedule(Executor executor, Runnable command, long delay, TimeUnit unit);
 
-  /**
-   * Returns a scheduler that always returns a successfully completed future.
-   *
-   * @return a scheduler that always returns a successfully completed future
-   */
-  static Scheduler disabledScheduler() {
-    return DisabledScheduler.INSTANCE;
-  }
+    static Scheduler disabledScheduler() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  /**
-   * Returns a scheduler that uses the system-wide scheduling thread by using
-   * {@link CompletableFuture#delayedExecutor}.
-   *
-   * @return a scheduler that uses the system-wide scheduling thread
-   */
-  static Scheduler systemScheduler() {
-    return SystemScheduler.INSTANCE;
-  }
+    static Scheduler systemScheduler() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  /**
-   * Returns a scheduler that delegates to the a {@link ScheduledExecutorService}.
-   * <p>
-   * Note that this implementation will ignore scheduling the task if the executor was shutdown or
-   * the submission was rejected. Consider implementing your own adapter if different behavior is
-   * required.
-   *
-   * @param scheduledExecutorService the executor to schedule on
-   * @return a scheduler that delegates to the a {@link ScheduledExecutorService}
-   */
-  static Scheduler forScheduledExecutorService(ScheduledExecutorService scheduledExecutorService) {
-    return new ExecutorServiceScheduler(scheduledExecutorService);
-  }
+    static Scheduler forScheduledExecutorService(ScheduledExecutorService scheduledExecutorService) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  /**
-   * Returns a scheduler that suppresses and logs any exception thrown by the delegate
-   * {@code scheduler}.
-   *
-   * @param scheduler the scheduler to delegate to
-   * @return a scheduler that suppresses and logs any exception thrown by the delegate
-   */
-  static Scheduler guardedScheduler(Scheduler scheduler) {
-    return (scheduler instanceof GuardedScheduler) ? scheduler : new GuardedScheduler(scheduler);
-  }
+    static Scheduler guardedScheduler(Scheduler scheduler) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }
 
 enum SystemScheduler implements Scheduler {
-  INSTANCE;
 
-  @Override
-  public Future<?> schedule(Executor executor, Runnable command, long delay, TimeUnit unit) {
-    Executor delayedExecutor = CompletableFuture.delayedExecutor(delay, unit, executor);
-    return CompletableFuture.runAsync(command, delayedExecutor);
-  }
+    INSTANCE;
+
+    @Override
+    public Future<?> schedule(Executor executor, Runnable command, long delay, TimeUnit unit) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }
 
 final class ExecutorServiceScheduler implements Scheduler, Serializable {
-  private static final Logger logger = System.getLogger(ExecutorServiceScheduler.class.getName());
-  private static final long serialVersionUID = 1;
 
-  @SuppressWarnings("serial")
-  final ScheduledExecutorService scheduledExecutorService;
+    private static final Logger logger = System.getLogger(ExecutorServiceScheduler.class.getName());
 
-  ExecutorServiceScheduler(ScheduledExecutorService scheduledExecutorService) {
-    this.scheduledExecutorService = requireNonNull(scheduledExecutorService);
-  }
+    private static final long serialVersionUID = 1;
 
-  @Override
-  public Future<? extends @Nullable Object> schedule(
-      Executor executor, Runnable command, long delay, TimeUnit unit) {
-    requireNonNull(executor);
-    requireNonNull(command);
-    requireNonNull(unit);
+    @SuppressWarnings("serial")
+    final ScheduledExecutorService scheduledExecutorService;
 
-    if (scheduledExecutorService.isShutdown()) {
-      return DisabledFuture.instance();
+    ExecutorServiceScheduler(ScheduledExecutorService scheduledExecutorService) {
+        this.scheduledExecutorService = requireNonNull(scheduledExecutorService);
     }
-    return scheduledExecutorService.schedule(() -> {
-      try {
-        executor.execute(command);
-      } catch (Throwable t) {
-        logger.log(Level.WARNING, "Exception thrown when submitting scheduled task", t);
-        throw t;
-      }
-    }, delay, unit);
-  }
+
+    @Override
+    public Future<? extends @Nullable Object> schedule(Executor executor, Runnable command, long delay, TimeUnit unit) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }
 
 final class GuardedScheduler implements Scheduler, Serializable {
-  private static final Logger logger = System.getLogger(GuardedScheduler.class.getName());
-  private static final long serialVersionUID = 1;
 
-  @SuppressWarnings("serial")
-  final Scheduler delegate;
+    private static final Logger logger = System.getLogger(GuardedScheduler.class.getName());
 
-  GuardedScheduler(Scheduler delegate) {
-    this.delegate = requireNonNull(delegate);
-  }
+    private static final long serialVersionUID = 1;
 
-  @Override
-  @SuppressWarnings("ConstantValue")
-  public Future<? extends @Nullable Object> schedule(
-      Executor executor, Runnable command, long delay, TimeUnit unit) {
-    try {
-      var future = delegate.schedule(executor, command, delay, unit);
-      return (future == null) ? DisabledFuture.instance() : future;
-    } catch (Throwable t) {
-      logger.log(Level.WARNING, "Exception thrown by scheduler; discarded task", t);
-      return DisabledFuture.instance();
+    @SuppressWarnings("serial")
+    final Scheduler delegate;
+
+    GuardedScheduler(Scheduler delegate) {
+        this.delegate = requireNonNull(delegate);
     }
-  }
+
+    @Override
+    @SuppressWarnings("ConstantValue")
+    public Future<? extends @Nullable Object> schedule(Executor executor, Runnable command, long delay, TimeUnit unit) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }
 
 enum DisabledScheduler implements Scheduler {
-  INSTANCE;
 
-  @Override
-  public Future<? extends @Nullable Object> schedule(
-      Executor executor, Runnable command, long delay, TimeUnit unit) {
-    requireNonNull(executor);
-    requireNonNull(command);
-    requireNonNull(unit);
-    return DisabledFuture.instance();
-  }
+    INSTANCE;
+
+    @Override
+    public Future<? extends @Nullable Object> schedule(Executor executor, Runnable command, long delay, TimeUnit unit) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }
 
 @SuppressWarnings("CheckedExceptionNotThrown")
 enum DisabledFuture implements Future<@Nullable Void> {
-  INSTANCE;
 
-  static Future<? extends @Nullable Object> instance() {
-    return INSTANCE;
-  }
+    INSTANCE;
 
-  @Override public boolean isDone() {
-    return true;
-  }
-  @Override public boolean isCancelled() {
-    return false;
-  }
-  @Override public boolean cancel(boolean mayInterruptIfRunning) {
-    return false;
-  }
-  @Override public @Nullable Void get(long timeout, TimeUnit unit) {
-    requireNonNull(unit);
-    return null;
-  }
-  @Override public @Nullable Void get() {
-    return null;
-  }
+    static Future<? extends @Nullable Object> instance() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public boolean isDone() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public boolean isCancelled() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public boolean cancel(boolean mayInterruptIfRunning) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    @Nullable
+    public Void get(long timeout, TimeUnit unit) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    @Nullable
+    public Void get() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

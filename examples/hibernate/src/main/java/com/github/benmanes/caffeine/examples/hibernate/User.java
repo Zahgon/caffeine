@@ -16,12 +16,9 @@
 package com.github.benmanes.caffeine.examples.hibernate;
 
 import static org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE;
-
 import java.util.ArrayList;
 import java.util.List;
-
 import org.hibernate.annotations.Cache;
-
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
@@ -34,47 +31,48 @@ import jakarta.persistence.OneToMany;
 @Entity
 @Cache(usage = READ_WRITE)
 public class User {
-  @Id
-  @GeneratedValue
-  private long id;
 
-  private String name;
+    @Id
+    @GeneratedValue
+    private long id;
 
-  @OneToMany(mappedBy = "assignee")
-  private List<Project> projects = new ArrayList<>();
+    private String name;
 
-  @ManyToMany
-  private List<Skill> skills = new ArrayList<>();
+    @OneToMany(mappedBy = "assignee")
+    private List<Project> projects = new ArrayList<>();
 
-  public long getId() {
-    return id;
-  }
+    @ManyToMany
+    private List<Skill> skills = new ArrayList<>();
 
-  public void setId(long id) {
-    this.id = id;
-  }
+    public long getId() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  public String getName() {
-    return name;
-  }
+    public void setId(long id) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  public void setName(String name) {
-    this.name = name;
-  }
+    public String getName() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  public List<Project> getProjects() {
-    return projects;
-  }
+    public void setName(String name) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  public void setProjects(List<Project> projects) {
-    this.projects = projects;
-  }
+    public List<Project> getProjects() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  public List<Skill> getSkills() {
-    return skills;
-  }
+    public void setProjects(List<Project> projects) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  public void setSkills(List<Skill> skills) {
-    this.skills = skills;
-  }
+    public List<Skill> getSkills() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public void setSkills(List<Skill> skills) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

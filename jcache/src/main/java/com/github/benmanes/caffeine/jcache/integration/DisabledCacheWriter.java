@@ -16,7 +16,6 @@
 package com.github.benmanes.caffeine.jcache.integration;
 
 import java.util.Collection;
-
 import javax.cache.Cache;
 import javax.cache.integration.CacheWriter;
 
@@ -26,29 +25,31 @@ import javax.cache.integration.CacheWriter;
  * @author ben.manes@gmail.com (Ben Manes)
  */
 public enum DisabledCacheWriter implements CacheWriter<Object, Object> {
-  INSTANCE;
 
-  /**
-   * Returns a disabled cache writer.
-   *
-   * @param <K> the type of key
-   * @param <V> the type of value
-   * @return a cache writer that performs no operation
-   */
-  @SuppressWarnings("unchecked")
-  public static <K, V> CacheWriter<K, V> get() {
-    return (CacheWriter<K, V>) INSTANCE;
-  }
+    INSTANCE;
 
-  @Override
-  public void write(Cache.Entry<?, ?> entry) {}
+    @SuppressWarnings("unchecked")
+    public static <K, V> CacheWriter<K, V> get() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  public void writeAll(Collection<Cache.Entry<?, ?>> entries) {}
+    @Override
+    public void write(Cache.Entry<?, ?> entry) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  public void delete(Object key) {}
+    @Override
+    public void writeAll(Collection<Cache.Entry<?, ?>> entries) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  public void deleteAll(Collection<?> keys) {}
+    @Override
+    public void delete(Object key) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public void deleteAll(Collection<?> keys) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

@@ -17,7 +17,6 @@ package com.github.benmanes.caffeine.cache;
 
 import static com.github.benmanes.caffeine.cache.Caffeine.calculateHashMapCapacity;
 import static java.util.Objects.requireNonNull;
-
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -25,9 +24,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
-
 import org.jspecify.annotations.Nullable;
-
 import com.github.benmanes.caffeine.cache.stats.CacheStats;
 import com.google.errorprone.annotations.Var;
 
@@ -39,123 +36,80 @@ import com.google.errorprone.annotations.Var;
  */
 interface LocalManualCache<K, V> extends Cache<K, V> {
 
-  /** Returns the backing {@link LocalCache} data store. */
-  LocalCache<K, V> cache();
+    /**
+     * Returns the backing {@link LocalCache} data store.
+     */
+    LocalCache<K, V> cache();
 
-  @Override
-  default long estimatedSize() {
-    return cache().estimatedSize();
-  }
-
-  @Override
-  default void cleanUp() {
-    cache().cleanUp();
-  }
-
-  @Override
-  default @Nullable V getIfPresent(K key) {
-    return cache().getIfPresent(key, /* recordStats= */ true);
-  }
-
-  @Override
-  @SuppressWarnings("NullAway")
-  default @Nullable V get(K key, Function<? super K, ? extends V> mappingFunction) {
-    return cache().computeIfAbsent(key, mappingFunction);
-  }
-
-  @Override
-  default Map<K, V> getAllPresent(Iterable<? extends K> keys) {
-    return cache().getAllPresent(keys);
-  }
-
-  @Override
-  default Map<K, V> getAll(Iterable<? extends K> keys,
-      Function<? super Set<? extends K>, ? extends Map<? extends K, ? extends V>> mappingFunction) {
-    requireNonNull(mappingFunction);
-
-    var found = cache().getAllPresent(keys);
-    int initialCapacity = calculateHashMapCapacity(keys);
-    var keysToLoad = new LinkedHashSet<K>(initialCapacity);
-    var result = new LinkedHashMap<K, @Nullable V>(initialCapacity);
-    for (K key : keys) {
-      V value = found.get(key);
-      if (value == null) {
-        keysToLoad.add(key);
-      }
-      result.put(key, value);
+    @Override
+    default long estimatedSize() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    if (keysToLoad.isEmpty()) {
-      return found;
+
+    @Override
+    default void cleanUp() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    bulkLoad(keysToLoad, result, mappingFunction);
 
-    @SuppressWarnings("NullableProblems")
-    Map<K, V> unmodifiable = Collections.unmodifiableMap(result);
-    return unmodifiable;
-  }
-
-  /**
-   * Performs a non-blocking bulk load of the missing keys. Any missing entry that materializes
-   * during the load are replaced when the loaded entries are inserted into the cache.
-   */
-  default void bulkLoad(Set<K> keysToLoad, Map<K, @Nullable V> result,
-      Function<? super Set<? extends K>, ? extends Map<? extends K, ? extends V>> mappingFunction) {
-    long startTime = cache().statsTicker().read();
-    @Var boolean success = false;
-    try {
-      var loaded = mappingFunction.apply(Collections.unmodifiableSet(keysToLoad));
-      loaded.forEach(cache()::put);
-      for (K key : keysToLoad) {
-        V value = loaded.get(key);
-        if (value == null) {
-          result.remove(key);
-        } else {
-          result.put(key, value);
-        }
-      }
-      success = !loaded.isEmpty();
-    } finally {
-      long loadTime = cache().statsTicker().read() - startTime;
-      if (success) {
-        cache().statsCounter().recordLoadSuccess(loadTime);
-      } else {
-        cache().statsCounter().recordLoadFailure(loadTime);
-      }
+    @Override
+    @Nullable
+    default V getIfPresent(K key) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  @Override
-  default void put(K key, V value) {
-    cache().put(key, value);
-  }
+    @Override
+    @SuppressWarnings("NullAway")
+    @Nullable
+    default V get(K key, Function<? super K, ? extends V> mappingFunction) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  default void putAll(Map<? extends K, ? extends V> map) {
-    cache().putAll(map);
-  }
+    @Override
+    default Map<K, V> getAllPresent(Iterable<? extends K> keys) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  default void invalidate(K key) {
-    cache().remove(key);
-  }
+    @Override
+    default Map<K, V> getAll(Iterable<? extends K> keys, Function<? super Set<? extends K>, ? extends Map<? extends K, ? extends V>> mappingFunction) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  default void invalidateAll(Iterable<? extends K> keys) {
-    cache().invalidateAll(keys);
-  }
+    default void bulkLoad(Set<K> keysToLoad, Map<K, @Nullable V> result, Function<? super Set<? extends K>, ? extends Map<? extends K, ? extends V>> mappingFunction) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  default void invalidateAll() {
-    cache().clear();
-  }
+    @Override
+    default void put(K key, V value) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  default CacheStats stats() {
-    return cache().statsCounter().snapshot();
-  }
+    @Override
+    default void putAll(Map<? extends K, ? extends V> map) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  default ConcurrentMap<K, V> asMap() {
-    return cache();
-  }
+    @Override
+    default void invalidate(K key) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    default void invalidateAll(Iterable<? extends K> keys) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    default void invalidateAll() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    default CacheStats stats() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    default ConcurrentMap<K, V> asMap() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

@@ -20,9 +20,7 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-
 import org.jspecify.annotations.Nullable;
-
 import com.google.errorprone.annotations.Var;
 
 /**
@@ -32,107 +30,58 @@ import com.google.errorprone.annotations.Var;
  */
 @FunctionalInterface
 interface LocalCacheFactory {
-  MethodHandles.Lookup LOOKUP = MethodHandles.lookup();
-  MethodType FACTORY = MethodType.methodType(
-      void.class, Caffeine.class, AsyncCacheLoader.class, boolean.class);
-  MethodType FACTORY_CALL = FACTORY.changeReturnType(BoundedLocalCache.class);
-  ConcurrentMap<String, LocalCacheFactory> FACTORIES = new ConcurrentHashMap<>();
-  String EXPIRES_AFTER_ACCESS_NANOS = "expiresAfterAccessNanos";
-  String EXPIRES_AFTER_WRITE_NANOS = "expiresAfterWriteNanos";
-  String REFRESH_AFTER_WRITE_NANOS = "refreshAfterWriteNanos";
-  String WEIGHTED_SIZE = "weightedSize";
-  String MAXIMUM = "maximum";
 
-  /** Returns a cache optimized for this configuration. */
-  <K, V> BoundedLocalCache<K, V> newInstance(Caffeine<K, V> builder,
-      @Nullable AsyncCacheLoader<? super K, V> cacheLoader, boolean isAsync) throws Throwable;
+    MethodHandles.Lookup LOOKUP = MethodHandles.lookup();
 
-  /** Returns a cache optimized for this configuration. */
-  static <K, V> BoundedLocalCache<K, V> newBoundedLocalCache(Caffeine<K, V> builder,
-      @Nullable AsyncCacheLoader<? super K, V> cacheLoader, boolean isAsync) {
-    var className = getClassName(builder);
-    var factory = loadFactory(className);
-    try {
-      return factory.newInstance(builder, cacheLoader, isAsync);
-    } catch (RuntimeException | Error e) {
-      throw e;
-    } catch (Throwable t) {
-      throw new IllegalStateException(className, t);
-    }
-  }
+    MethodType FACTORY = MethodType.methodType(void.class, Caffeine.class, AsyncCacheLoader.class, boolean.class);
 
-  static String getClassName(Caffeine<?, ?> builder) {
-    var className = new StringBuilder();
-    if (builder.isStrongKeys()) {
-      className.append('S');
-    } else {
-      className.append('W');
-    }
-    if (builder.isStrongValues()) {
-      className.append('S');
-    } else {
-      className.append('I');
-    }
-    if (builder.removalListener != null) {
-      className.append('L');
-    }
-    if (builder.isRecordingStats()) {
-      className.append('S');
-    }
-    if (builder.evicts()) {
-      className.append('M');
-      if (builder.isWeighted()) {
-        className.append('W');
-      } else {
-        className.append('S');
-      }
-    }
-    if (builder.expiresAfterAccess() || builder.expiresVariable()) {
-      className.append('A');
-    }
-    if (builder.expiresAfterWrite()) {
-      className.append('W');
-    }
-    if (builder.refreshAfterWrite()) {
-      className.append('R');
-    }
-    return className.toString();
-  }
+    MethodType FACTORY_CALL = FACTORY.changeReturnType(BoundedLocalCache.class);
 
-  static LocalCacheFactory loadFactory(String className) {
-    @Var var factory = FACTORIES.get(className);
-    if (factory == null) {
-      factory = FACTORIES.computeIfAbsent(className, LocalCacheFactory::newFactory);
-    }
-    return factory;
-  }
+    ConcurrentMap<String, LocalCacheFactory> FACTORIES = new ConcurrentHashMap<>();
 
-  static LocalCacheFactory newFactory(String className) {
-    try {
-      var clazz = LOOKUP.findClass(LocalCacheFactory.class.getPackageName() + "." + className);
-      try {
-        // Fast path
-        return (LocalCacheFactory) LOOKUP
-            .findStaticVarHandle(clazz, "FACTORY", LocalCacheFactory.class).get();
-      } catch (NoSuchFieldException e) {
-        // Slow path when native hints are missing the field, but may have the constructor
-        return new MethodHandleBasedFactory(clazz);
-      }
-    } catch (ClassNotFoundException | IllegalAccessException | NoSuchMethodException t) {
-      throw new IllegalStateException(className, t);
-    }
-  }
+    String EXPIRES_AFTER_ACCESS_NANOS = "expiresAfterAccessNanos";
 
-  final class MethodHandleBasedFactory implements LocalCacheFactory {
-    final MethodHandle methodHandle;
+    String EXPIRES_AFTER_WRITE_NANOS = "expiresAfterWriteNanos";
 
-    MethodHandleBasedFactory(Class<?> clazz) throws NoSuchMethodException, IllegalAccessException {
-      this.methodHandle = LOOKUP.findConstructor(clazz, FACTORY).asType(FACTORY_CALL);
+    String REFRESH_AFTER_WRITE_NANOS = "refreshAfterWriteNanos";
+
+    String WEIGHTED_SIZE = "weightedSize";
+
+    String MAXIMUM = "maximum";
+
+    /**
+     * Returns a cache optimized for this configuration.
+     */
+    <K, V> BoundedLocalCache<K, V> newInstance(Caffeine<K, V> builder, @Nullable AsyncCacheLoader<? super K, V> cacheLoader, boolean isAsync) throws Throwable;
+
+    static <K, V> BoundedLocalCache<K, V> newBoundedLocalCache(Caffeine<K, V> builder, @Nullable AsyncCacheLoader<? super K, V> cacheLoader, boolean isAsync) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    @SuppressWarnings({"ClassEscapesDefinedScope", "unchecked"})
-    @Override public <K, V> BoundedLocalCache<K, V> newInstance(Caffeine<K, V> builder,
-        @Nullable AsyncCacheLoader<? super K, V> cacheLoader, boolean async) throws Throwable {
-      return (BoundedLocalCache<K, V>) methodHandle.invokeExact(builder, cacheLoader, async);
+
+    static String getClassName(Caffeine<?, ?> builder) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
+
+    static LocalCacheFactory loadFactory(String className) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    static LocalCacheFactory newFactory(String className) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    final class MethodHandleBasedFactory implements LocalCacheFactory {
+
+        final MethodHandle methodHandle;
+
+        MethodHandleBasedFactory(Class<?> clazz) throws NoSuchMethodException, IllegalAccessException {
+            this.methodHandle = LOOKUP.findConstructor(clazz, FACTORY).asType(FACTORY_CALL);
+        }
+
+        @SuppressWarnings({ "ClassEscapesDefinedScope", "unchecked" })
+        @Override
+        public <K, V> BoundedLocalCache<K, V> newInstance(Caffeine<K, V> builder, @Nullable AsyncCacheLoader<? super K, V> cacheLoader, boolean async) throws Throwable {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
 }

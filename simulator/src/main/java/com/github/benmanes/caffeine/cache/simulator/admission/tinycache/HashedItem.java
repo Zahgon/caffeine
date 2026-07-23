@@ -23,20 +23,24 @@ package com.github.benmanes.caffeine.cache.simulator.admission.tinycache;
  * @author gilga1983@gmail.com (Gil Einziger)
  */
 final class HashedItem {
-  int set;
-  byte chainId;
-  byte fingerprint;
-  long value;
 
-  public HashedItem(int set, byte chainId, byte fingerprint, long value) {
-    this.set = set;
-    this.value = value;
-    this.chainId = chainId;
-    this.fingerprint = fingerprint;
-  }
+    int set;
 
-  @Override
-  public String toString() {
-    return ("BucketID: " + set + " chainID:" + chainId + " fingerprint: " + fingerprint);
-  }
+    byte chainId;
+
+    byte fingerprint;
+
+    long value;
+
+    public HashedItem(int set, byte chainId, byte fingerprint, long value) {
+        this.set = set;
+        this.value = value;
+        this.chainId = chainId;
+        this.fingerprint = fingerprint;
+    }
+
+    @Override
+    public String toString() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

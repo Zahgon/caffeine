@@ -24,47 +24,51 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
  */
 public interface Membership {
 
-  /**
-   * Returns if the element <i>might</i> have been put in this Bloom filter, {@code false} if this
-   * is <i>definitely</i> not the case.
-   *
-   * @param e the element whose presence is to be tested
-   * @return if the element might be present
-   */
-  boolean mightContain(long e);
+    /**
+     * Returns if the element <i>might</i> have been put in this Bloom filter, {@code false} if this
+     * is <i>definitely</i> not the case.
+     *
+     * @param e the element whose presence is to be tested
+     * @return if the element might be present
+     */
+    boolean mightContain(long e);
 
-  /** Removes the elements from this collection. */
-  void clear();
+    /**
+     * Removes the elements from this collection.
+     */
+    void clear();
 
-  /**
-   * Puts an element into this collection so that subsequent queries with the same element will
-   * return {@code true}.
-   *
-   * @param e the element to add
-   * @return if the membership changed as a result of this operation
-   */
-  @CanIgnoreReturnValue
-  boolean put(long e);
+    /**
+     * Puts an element into this collection so that subsequent queries with the same element will
+     * return {@code true}.
+     *
+     * @param e the element to add
+     * @return if the membership changed as a result of this operation
+     */
+    @CanIgnoreReturnValue
+    boolean put(long e);
 
-  /** Returns an instance that contains nothing. */
-  static Membership disabled() {
-    return DisabledMembership.INSTANCE;
-  }
+    static Membership disabled() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }
 
 enum DisabledMembership implements Membership {
-  INSTANCE;
 
-  @Override
-  public boolean mightContain(long e) {
-    return false;
-  }
+    INSTANCE;
 
-  @Override
-  public void clear() {}
+    @Override
+    public boolean mightContain(long e) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  public boolean put(long e) {
-    return false;
-  }
+    @Override
+    public void clear() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public boolean put(long e) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

@@ -18,7 +18,6 @@ package com.github.benmanes.caffeine.cache.simulator.parser.snia.enterprise;
 import java.math.RoundingMode;
 import java.util.function.Predicate;
 import java.util.stream.LongStream;
-
 import com.github.benmanes.caffeine.cache.simulator.parser.TextTraceReader;
 import com.github.benmanes.caffeine.cache.simulator.parser.TraceReader.KeyOnlyTraceReader;
 import com.google.common.math.IntMath;
@@ -30,40 +29,26 @@ import com.google.common.math.IntMath;
  *
  * @author ben.manes@gmail.com (Ben Manes)
  */
-public final class EnterpriseTraceReader
-    extends TextTraceReader implements KeyOnlyTraceReader {
-  private static final int BLOCK_SIZE = 4096;
+public final class EnterpriseTraceReader extends TextTraceReader implements KeyOnlyTraceReader {
 
-  public EnterpriseTraceReader(String filePath) {
-    super(filePath);
-  }
+    private static final int BLOCK_SIZE = 4096;
 
-  @Override
-  public LongStream keys() {
-    return lines()
-        .dropWhile(new SkipHeader())
-        .filter(line -> line.stripLeading().startsWith("DiskRead,"))
-        .map(line -> line.split(",", 8))
-        .flatMapToLong(line -> {
-          long byteOffset = Long.parseLong(line[5].strip().substring(2), 16);
-          int size = Integer.parseInt(line[6].strip().substring(2), 16);
-
-          long startBlock = byteOffset / BLOCK_SIZE;
-          int sequence = IntMath.divide(size, BLOCK_SIZE, RoundingMode.UP);
-          return LongStream.range(startBlock, startBlock + sequence);
-        });
-  }
-
-  private static final class SkipHeader implements Predicate<String> {
-    private boolean isHeader;
-
-    @Override public boolean test(String line) {
-      if (line.equals("BeginHeader")) {
-        isHeader = true;
-      } else if (line.equals("EndHeader")) {
-        isHeader = false;
-      }
-      return isHeader;
+    public EnterpriseTraceReader(String filePath) {
+        super(filePath);
     }
-  }
+
+    @Override
+    public LongStream keys() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    private static final class SkipHeader implements Predicate<String> {
+
+        private boolean isHeader;
+
+        @Override
+        public boolean test(String line) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
 }

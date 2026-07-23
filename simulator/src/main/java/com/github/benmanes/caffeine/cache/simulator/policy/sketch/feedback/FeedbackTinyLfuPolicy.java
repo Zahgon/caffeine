@@ -17,11 +17,8 @@ package com.github.benmanes.caffeine.cache.simulator.policy.sketch.feedback;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
-
 import java.util.Map;
-
 import org.jspecify.annotations.Nullable;
-
 import com.github.benmanes.caffeine.cache.simulator.BasicSettings;
 import com.github.benmanes.caffeine.cache.simulator.admission.Admission;
 import com.github.benmanes.caffeine.cache.simulator.admission.Admitter;
@@ -32,7 +29,6 @@ import com.github.benmanes.caffeine.cache.simulator.policy.PolicyStats;
 import com.google.common.base.MoreObjects;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 
@@ -48,209 +44,193 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
  */
 @PolicySpec(name = "sketch.FeedbackTinyLfu")
 public final class FeedbackTinyLfuPolicy implements KeyOnlyPolicy {
-  private final Long2ObjectMap<Node> data;
-  private final PolicyStats policyStats;
-  private final Admitter admitter;
-  private final int maximumSize;
-  private final Node head;
 
-  private int gain;
-  private final int maxGain;
+    private final Long2ObjectMap<Node> data;
 
-  private int sample;
-  private int sampled;
-  private int adjusted;
-  private final int sampleSize;
-  private final Membership feedback;
+    private final PolicyStats policyStats;
 
-  boolean debug;
+    private final Admitter admitter;
 
-  public FeedbackTinyLfuPolicy(Config config) {
-    this.policyStats = new PolicyStats(name());
-    var settings = new FeedbackTinyLfuSettings(config);
-    this.maximumSize = Math.toIntExact(settings.maximumSize());
-    this.admitter = Admission.TINYLFU.from(settings.config(), policyStats);
-    this.data = new Long2ObjectOpenHashMap<>();
-    this.head = new Node();
+    private final int maximumSize;
 
-    maxGain = Math.min(15, settings.maximumInsertionGain());
-    sampleSize = Math.min(settings.maximumSampleSize(), maximumSize);
-    feedback = settings.membership().filter().create(settings.filterConfig(sampleSize));
-  }
+    private final Node head;
 
-  @Override
-  public PolicyStats stats() {
-    return policyStats;
-  }
+    private int gain;
 
-  @Override
-  public void record(long key) {
-    if ((sample % sampleSize) == 0) {
-      sampled++;
-    }
-    if (sample % (sampleSize / 2) == 0) {
-      feedback.clear();
-    }
-    sample++;
+    private final int maxGain;
 
-    admitter.record(key);
-    policyStats.recordOperation();
-    @Nullable Node node = data.get(key);
-    if (node == null) {
-      onMiss(key);
-      policyStats.recordMiss();
-    } else {
-      onHit(node);
-      policyStats.recordHit();
-    }
-  }
+    private int sample;
 
-  /** Adds the entry, evicting if necessary. */
-  private void onMiss(long key) {
-    for (int i = 0; i < gain; i++) {
-      admitter.record(key);
-    }
+    private int sampled;
 
-    var node = new Node(key);
-    node.appendToTail(head);
-    data.put(key, node);
-    evict(node);
-  }
+    private int adjusted;
 
-  /** Moves the entry to the MRU position. */
-  private void onHit(Node node) {
-    node.moveToTail(head);
-  }
+    private final int sampleSize;
 
-  /**
-   * If the size exceeds the maximum, then the candidate and victim are evaluated and one is
-   * evicted.
-   */
-  private void evict(Node candidate) {
-    if (data.size() > maximumSize) {
-      Node evict;
-      Node victim = requireNonNull(head.next);
-      if (admitter.admit(candidate.key, victim.key)) {
-        evict = victim;
-      } else if (adapt(candidate)) {
-        evict = victim;
-      } else {
-        evict = candidate;
-        feedback.put(candidate.key);
-      }
-      data.remove(evict.key);
-      evict.remove();
+    private final Membership feedback;
 
-      policyStats.recordEviction();
-    }
-  }
+    boolean debug;
 
-  private boolean adapt(Node candidate) {
-    if (adjusted == sampled) {
-      // Already adjusted this period
-      return false;
-    }
-
-    if (feedback.mightContain(candidate.key)) {
-      if (sampled >= (adjusted + gain)) {
-        adjusted = sampled;
-
-        // Increase arrival emphasis
-        if (gain < maxGain) {
-          gain++;
-        }
-      }
-      return true;
-    } else if (sampled > (adjusted + gain + 1)) {
-      adjusted = sampled;
-
-      // Decrease arrival emphasis
-      if (gain > 0) {
-        gain--;
-      }
-    }
-    return false;
-  }
-
-  @Override
-  public void finished() {
-    if (debug) {
-      System.out.println("recency gain = " + gain);
-    }
-    checkState(data.size() <= maximumSize, data.size());
-  }
-
-  /** A node on the double-linked list. */
-  static final class Node {
-    final long key;
-
-    @Nullable Node prev;
-    @Nullable Node next;
-
-    /** Creates a new sentinel node. */
-    public Node() {
-      this.key = Integer.MIN_VALUE;
-      this.prev = this;
-      this.next = this;
-    }
-
-    /** Creates a new, unlinked node. */
-    public Node(long key) {
-      this.key = key;
-    }
-
-    public void moveToTail(Node head) {
-      remove();
-      appendToTail(head);
-    }
-
-    /** Appends the node to the tail of the list. */
-    public void appendToTail(Node head) {
-      requireNonNull(head.prev);
-      Node tail = head.prev;
-      head.prev = this;
-      tail.next = this;
-      next = head;
-      prev = tail;
-    }
-
-    /** Removes the node from the list. */
-    public void remove() {
-      requireNonNull(prev);
-      requireNonNull(next);
-
-      prev.next = next;
-      next.prev = prev;
-      next = prev = null;
+    public FeedbackTinyLfuPolicy(Config config) {
+        this.policyStats = new PolicyStats(name());
+        var settings = new FeedbackTinyLfuSettings(config);
+        this.maximumSize = Math.toIntExact(settings.maximumSize());
+        this.admitter = Admission.TINYLFU.from(settings.config(), policyStats);
+        this.data = new Long2ObjectOpenHashMap<>();
+        this.head = new Node();
+        maxGain = Math.min(15, settings.maximumInsertionGain());
+        sampleSize = Math.min(settings.maximumSampleSize(), maximumSize);
+        feedback = settings.membership().filter().create(settings.filterConfig(sampleSize));
     }
 
     @Override
-    public String toString() {
-      return MoreObjects.toStringHelper(this)
-          .add("key", key)
-          .toString();
+    public PolicyStats stats() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  static final class FeedbackTinyLfuSettings extends BasicSettings {
-    public FeedbackTinyLfuSettings(Config config) {
-      super(config);
+    @Override
+    public void record(long key) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    public int maximumInsertionGain() {
-      return config().getInt("feedback-tiny-lfu.maximum-insertion-gain");
+
+    /**
+     * Adds the entry, evicting if necessary.
+     */
+    private void onMiss(long key) {
+        for (int i = 0; i < gain; i++) {
+            admitter.record(key);
+        }
+        var node = new Node(key);
+        node.appendToTail(head);
+        data.put(key, node);
+        evict(node);
     }
-    public int maximumSampleSize() {
-      return config().getInt("feedback-tiny-lfu.maximum-sample-size");
+
+    /**
+     * Moves the entry to the MRU position.
+     */
+    private void onHit(Node node) {
+        node.moveToTail(head);
     }
-    public double adaptiveFpp() {
-      return config().getDouble("feedback-tiny-lfu.adaptive-fpp");
+
+    /**
+     * If the size exceeds the maximum, then the candidate and victim are evaluated and one is
+     * evicted.
+     */
+    private void evict(Node candidate) {
+        if (data.size() > maximumSize) {
+            Node evict;
+            Node victim = requireNonNull(head.next);
+            if (admitter.admit(candidate.key, victim.key)) {
+                evict = victim;
+            } else if (adapt(candidate)) {
+                evict = victim;
+            } else {
+                evict = candidate;
+                feedback.put(candidate.key);
+            }
+            data.remove(evict.key);
+            evict.remove();
+            policyStats.recordEviction();
+        }
     }
-    public Config filterConfig(int sampleSize) {
-      return ConfigFactory
-          .parseMap(Map.of(
-              "membership.fpp", adaptiveFpp(),
-              "maximum-size", sampleSize))
-          .withFallback(config());
+
+    private boolean adapt(Node candidate) {
+        if (adjusted == sampled) {
+            // Already adjusted this period
+            return false;
+        }
+        if (feedback.mightContain(candidate.key)) {
+            if (sampled >= (adjusted + gain)) {
+                adjusted = sampled;
+                // Increase arrival emphasis
+                if (gain < maxGain) {
+                    gain++;
+                }
+            }
+            return true;
+        } else if (sampled > (adjusted + gain + 1)) {
+            adjusted = sampled;
+            // Decrease arrival emphasis
+            if (gain > 0) {
+                gain--;
+            }
+        }
+        return false;
     }
-  }
+
+    @Override
+    public void finished() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    /**
+     * A node on the double-linked list.
+     */
+    static final class Node {
+
+        final long key;
+
+        @Nullable
+        Node prev;
+
+        @Nullable
+        Node next;
+
+        /**
+         * Creates a new sentinel node.
+         */
+        public Node() {
+            this.key = Integer.MIN_VALUE;
+            this.prev = this;
+            this.next = this;
+        }
+
+        /**
+         * Creates a new, unlinked node.
+         */
+        public Node(long key) {
+            this.key = key;
+        }
+
+        public void moveToTail(Node head) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public void appendToTail(Node head) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public void remove() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public String toString() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
+
+    static final class FeedbackTinyLfuSettings extends BasicSettings {
+
+        public FeedbackTinyLfuSettings(Config config) {
+            super(config);
+        }
+
+        public int maximumInsertionGain() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public int maximumSampleSize() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public double adaptiveFpp() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public Config filterConfig(int sampleSize) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
 }

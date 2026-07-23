@@ -16,10 +16,8 @@
 package com.github.benmanes.caffeine.cache.simulator.parser.libcachesim.csv;
 
 import static com.github.benmanes.caffeine.cache.simulator.policy.Policy.Characteristic.WEIGHTED;
-
 import java.util.Set;
 import java.util.stream.Stream;
-
 import com.github.benmanes.caffeine.cache.simulator.parser.TextTraceReader;
 import com.github.benmanes.caffeine.cache.simulator.policy.AccessEvent;
 import com.github.benmanes.caffeine.cache.simulator.policy.Policy.Characteristic;
@@ -32,24 +30,17 @@ import com.github.benmanes.caffeine.cache.simulator.policy.Policy.Characteristic
  */
 public final class LibCacheSimCsvTraceReader extends TextTraceReader {
 
-  public LibCacheSimCsvTraceReader(String filePath) {
-    super(filePath);
-  }
+    public LibCacheSimCsvTraceReader(String filePath) {
+        super(filePath);
+    }
 
-  @Override
-  public Set<Characteristic> characteristics() {
-    return Set.of(WEIGHTED);
-  }
+    @Override
+    public Set<Characteristic> characteristics() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  public Stream<AccessEvent> events() {
-    return lines()
-        .skip(1)
-        .map(line -> line.split(","))
-        .map(array -> {
-          long key = Long.parseLong(array[4]);
-          int weight = Integer.parseInt(array[3]);
-          return AccessEvent.forKeyAndWeight(key, weight);
-        });
-  }
+    @Override
+    public Stream<AccessEvent> events() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

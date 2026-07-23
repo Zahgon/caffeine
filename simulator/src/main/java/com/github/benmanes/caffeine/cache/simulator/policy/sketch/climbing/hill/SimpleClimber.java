@@ -25,75 +25,76 @@ import com.typesafe.config.Config;
  * @author ben.manes@gmail.com (Ben Manes)
  */
 public final class SimpleClimber extends AbstractClimber {
-  private final double restartThreshold;
-  private final double initialStepSize;
-  private final double sampleDecayRate;
-  private final int initialSampleSize;
-  private final double stepDecayRate;
-  private final double tolerance;
 
-  private boolean increaseWindow;
-  private double stepSize;
+    private final double restartThreshold;
 
-  public SimpleClimber(Config config) {
-    var settings = new SimpleClimberSettings(config);
-    int maximumSize = Math.toIntExact(settings.maximumSize());
-    this.initialSampleSize = (int) (settings.percentSample() * maximumSize);
-    this.initialStepSize = settings.percentPivot() * maximumSize;
-    this.restartThreshold = settings.restartThreshold();
-    this.sampleDecayRate = settings.sampleDecayRate();
-    this.stepDecayRate = settings.stepDecayRate();
-    this.tolerance = 100d * settings.tolerance();
-    this.sampleSize = initialSampleSize;
-    this.stepSize = initialStepSize;
-  }
+    private final double initialStepSize;
 
-  @Override
-  protected double adjust(double hitRate) {
-    if (hitRate < (previousHitRate + tolerance)) {
-      increaseWindow = !increaseWindow;
-    }
-    if (Math.abs(hitRate - previousHitRate) >= restartThreshold) {
-      sampleSize = initialSampleSize;
-      stepSize = initialStepSize;
-    }
-    return increaseWindow ? stepSize : -stepSize;
-  }
+    private final double sampleDecayRate;
 
-  @Override
-  protected void resetSample(double hitRate) {
-    super.resetSample(hitRate);
+    private final int initialSampleSize;
 
-    stepSize *= stepDecayRate;
-    sampleSize = (int) (sampleSize * sampleDecayRate);
-    if ((stepSize <= 0.01) || (sampleSize <= 1)) {
-      sampleSize = Integer.MAX_VALUE;
-    }
-  }
+    private final double stepDecayRate;
 
-  static final class SimpleClimberSettings extends BasicSettings {
-    static final String BASE_PATH = "hill-climber-window-tiny-lfu.simple.";
+    private final double tolerance;
 
-    public SimpleClimberSettings(Config config) {
-      super(config);
+    private boolean increaseWindow;
+
+    private double stepSize;
+
+    public SimpleClimber(Config config) {
+        var settings = new SimpleClimberSettings(config);
+        int maximumSize = Math.toIntExact(settings.maximumSize());
+        this.initialSampleSize = (int) (settings.percentSample() * maximumSize);
+        this.initialStepSize = settings.percentPivot() * maximumSize;
+        this.restartThreshold = settings.restartThreshold();
+        this.sampleDecayRate = settings.sampleDecayRate();
+        this.stepDecayRate = settings.stepDecayRate();
+        this.tolerance = 100d * settings.tolerance();
+        this.sampleSize = initialSampleSize;
+        this.stepSize = initialStepSize;
     }
-    public double percentPivot() {
-      return config().getDouble(BASE_PATH + "percent-pivot");
+
+    @Override
+    protected double adjust(double hitRate) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    public double percentSample() {
-      return config().getDouble(BASE_PATH + "percent-sample");
+
+    @Override
+    protected void resetSample(double hitRate) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    public double tolerance() {
-      return config().getDouble(BASE_PATH + "tolerance");
+
+    static final class SimpleClimberSettings extends BasicSettings {
+
+        static final String BASE_PATH = "hill-climber-window-tiny-lfu.simple.";
+
+        public SimpleClimberSettings(Config config) {
+            super(config);
+        }
+
+        public double percentPivot() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public double percentSample() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public double tolerance() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public double stepDecayRate() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public double sampleDecayRate() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public double restartThreshold() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
     }
-    public double stepDecayRate() {
-      return config().getDouble(BASE_PATH + "step-decay-rate");
-    }
-    public double sampleDecayRate() {
-      return config().getDouble(BASE_PATH + "sample-decay-rate");
-    }
-    public double restartThreshold() {
-      return config().getDouble(BASE_PATH + "restart-threshold");
-    }
-  }
 }

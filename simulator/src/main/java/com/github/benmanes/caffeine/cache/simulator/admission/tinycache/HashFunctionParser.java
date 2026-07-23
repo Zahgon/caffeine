@@ -26,43 +26,35 @@ import com.google.errorprone.annotations.Var;
  */
 @SuppressWarnings("IdentifierName")
 final class HashFunctionParser {
-  // currently, chain is bounded to be 64.
-  private static final int fpSize = 8; // this implementation assumes byte.
-  private static final byte fpMask = (byte) 255; // (all bits in byte are 1, (logical value of -1));
-  private static final long chainMask = 63L; // (6 first bit are set to 1).
-  private static final long m = 0xc6a4a7935bd1e995L;
-  private static final long Seed64 = 0xe17a1465L;
-  private static final int r = 47;
 
-  final HashedItem fpaux; // used just to avoid allocating new memory as a return value.
+    // currently, chain is bounded to be 64.
+    // this implementation assumes byte.
+    private static final int fpSize = 8;
 
-  private final int nrSets;
+    // (all bits in byte are 1, (logical value of -1));
+    private static final byte fpMask = (byte) 255;
 
-  public HashFunctionParser(int nrSets) {
-    this.nrSets = nrSets;
-    fpaux = new HashedItem(fpMask, fpMask, fpMask, 0L);
-  }
+    // (6 first bit are set to 1).
+    private static final long chainMask = 63L;
 
-  @CanIgnoreReturnValue
-  public HashedItem createHash(@Var long item) {
-    @Var long h = (Seed64 ^ m);
-    item *= m;
-    item ^= item >>> r;
-    item *= m;
+    private static final long m = 0xc6a4a7935bd1e995L;
 
-    h ^= item;
-    h *= m;
+    private static final long Seed64 = 0xe17a1465L;
 
-    fpaux.fingerprint = (byte) h;
-    // the next line is a dirty fix as I do not want the value of 0 as a fingerprint.
-    // It can be eliminated if we want very short fingerprints.
-    fpaux.fingerprint = (fpaux.fingerprint == 0L) ? 1 : fpaux.fingerprint;
-    h >>>= fpSize;
-    fpaux.chainId = (byte) (h & chainMask);
-    h >>>= 6;
-    fpaux.set = (int) ((h & Long.MAX_VALUE) % nrSets);
+    private static final int r = 47;
 
-    fpaux.value = (item << 1) | 1;
-    return fpaux;
-  }
+    // used just to avoid allocating new memory as a return value.
+    final HashedItem fpaux;
+
+    private final int nrSets;
+
+    public HashFunctionParser(int nrSets) {
+        this.nrSets = nrSets;
+        fpaux = new HashedItem(fpMask, fpMask, fpMask, 0L);
+    }
+
+    @CanIgnoreReturnValue
+    public HashedItem createHash(@Var long item) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

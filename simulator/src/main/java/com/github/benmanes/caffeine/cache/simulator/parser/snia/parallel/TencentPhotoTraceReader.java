@@ -16,10 +16,8 @@
 package com.github.benmanes.caffeine.cache.simulator.parser.snia.parallel;
 
 import static com.github.benmanes.caffeine.cache.simulator.policy.Policy.Characteristic.WEIGHTED;
-
 import java.util.Set;
 import java.util.stream.Stream;
-
 import com.github.benmanes.caffeine.cache.simulator.parser.TextTraceReader;
 import com.github.benmanes.caffeine.cache.simulator.policy.AccessEvent;
 import com.github.benmanes.caffeine.cache.simulator.policy.Policy.Characteristic;
@@ -33,27 +31,22 @@ import com.google.common.io.BaseEncoding;
  * @author ben.manes@gmail.com (Ben Manes)
  */
 public final class TencentPhotoTraceReader extends TextTraceReader {
-  private static final String JPEG_FORMAT = "0";
-  private static final String WEBP_FORMAT = "5";
 
-  public TencentPhotoTraceReader(String filePath) {
-    super(filePath);
-  }
+    private static final String JPEG_FORMAT = "0";
 
-  @Override
-  public Set<Characteristic> characteristics() {
-    return Set.of(WEIGHTED);
-  }
+    private static final String WEBP_FORMAT = "5";
 
-  @Override
-  public Stream<AccessEvent> events() {
-    return lines()
-        .map(line -> line.split(" "))
-        .filter(array -> array[2].equals(JPEG_FORMAT) || array[2].equals(WEBP_FORMAT))
-        .map(array -> {
-          long key = Hashing.murmur3_128().hashBytes(
-              BaseEncoding.base16().lowerCase().decode(array[1])).asLong();
-          return AccessEvent.forKeyAndWeight(key, Integer.parseInt(array[4]));
-        });
-  }
+    public TencentPhotoTraceReader(String filePath) {
+        super(filePath);
+    }
+
+    @Override
+    public Set<Characteristic> characteristics() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public Stream<AccessEvent> events() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

@@ -24,78 +24,74 @@ import static com.google.common.base.Preconditions.checkArgument;
  */
 public interface HillClimber {
 
-  /**
-   * Records that a hit occurred with a full cache.
-   *
-   * @param key the key accessed
-   * @param queue the queue the entry was found in
-   * @param isFull if the cache is fully populated
-   */
-  void onHit(long key, QueueType queue, boolean isFull);
+    /**
+     * Records that a hit occurred with a full cache.
+     *
+     * @param key the key accessed
+     * @param queue the queue the entry was found in
+     * @param isFull if the cache is fully populated
+     */
+    void onHit(long key, QueueType queue, boolean isFull);
 
-  /**
-   * Records that a miss occurred with a full cache.
-   *
-   * @param key the key accessed
-   * @param isFull if the cache is fully populated and had to evict
-   */
-  void onMiss(long key, boolean isFull);
+    /**
+     * Records that a miss occurred with a full cache.
+     *
+     * @param key the key accessed
+     * @param isFull if the cache is fully populated and had to evict
+     */
+    void onMiss(long key, boolean isFull);
 
-  /**
-   * Determines how to adapt the segment sizes.
-   *
-   * @param windowSize the current window size
-   * @param probationSize the current probation size
-   * @param protectedSize the current protected size
-   * @param isFull if the cache is fully populated
-   * @return the adjustment to the segments
-   */
-  Adaptation adapt(double windowSize, double probationSize, double protectedSize, boolean isFull);
+    /**
+     * Determines how to adapt the segment sizes.
+     *
+     * @param windowSize the current window size
+     * @param probationSize the current probation size
+     * @param protectedSize the current protected size
+     * @param isFull if the cache is fully populated
+     * @return the adjustment to the segments
+     */
+    Adaptation adapt(double windowSize, double probationSize, double protectedSize, boolean isFull);
 
-  enum QueueType {
-    WINDOW, PROBATION, PROTECTED
-  }
+    enum QueueType {
 
-  /** The adaptation type and its magnitude. */
-  record Adaptation(double amount, Type type) {
-    private static final Adaptation HOLD = new Adaptation(0, Type.HOLD);
-
-    public Adaptation {
-      checkArgument(amount >= 0, "Step size %s must be positive", amount);
+        WINDOW, PROBATION, PROTECTED
     }
 
-    /** Returns the adaption based on the amount, where a negative value decreases the window. */
-    public static Adaptation adaptBy(double amount) {
-      if (amount == 0) {
-        return hold();
-      } else if (amount < 0) {
-        return decreaseWindow(Math.abs(amount));
-      } else {
-        return increaseWindow(amount);
-      }
-    }
+    /**
+     * The adaptation type and its magnitude.
+     */
+    record Adaptation(double amount, Type type) {
 
-    public static Adaptation hold() {
-      return HOLD;
-    }
-    public static Adaptation increaseWindow(double amount) {
-      return new Adaptation(amount, Type.INCREASE_WINDOW);
-    }
-    public static Adaptation decreaseWindow(double amount) {
-      return new Adaptation(amount, Type.DECREASE_WINDOW);
-    }
+        private static final Adaptation HOLD = new Adaptation(0, Type.HOLD);
 
-    @Override
-    public String toString() {
-      return switch (type) {
-        case HOLD -> "0";
-        case INCREASE_WINDOW -> "+" + amount;
-        case DECREASE_WINDOW -> "-" + amount;
-      };
-    }
+        public Adaptation {
+            checkArgument(amount >= 0, "Step size %s must be positive", amount);
+        }
 
-    public enum Type {
-      HOLD, INCREASE_WINDOW, DECREASE_WINDOW
+        public static Adaptation adaptBy(double amount) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public static Adaptation hold() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public static Adaptation increaseWindow(double amount) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public static Adaptation decreaseWindow(double amount) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public String toString() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public enum Type {
+
+            HOLD, INCREASE_WINDOW, DECREASE_WINDOW
+        }
     }
-  }
 }

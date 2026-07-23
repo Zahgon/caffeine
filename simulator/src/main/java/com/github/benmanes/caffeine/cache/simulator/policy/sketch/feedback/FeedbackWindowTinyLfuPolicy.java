@@ -19,13 +19,10 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.util.Locale.US;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toUnmodifiableSet;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
 import org.jspecify.annotations.Nullable;
-
 import com.github.benmanes.caffeine.cache.simulator.BasicSettings;
 import com.github.benmanes.caffeine.cache.simulator.admission.Admission;
 import com.github.benmanes.caffeine.cache.simulator.admission.Admitter;
@@ -38,7 +35,6 @@ import com.google.common.base.MoreObjects;
 import com.google.errorprone.annotations.Var;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 
@@ -54,380 +50,338 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
  */
 @PolicySpec(name = "sketch.FeedbackWindowTinyLfu")
 public final class FeedbackWindowTinyLfuPolicy implements KeyOnlyPolicy {
-  private final Long2ObjectMap<Node> data;
-  private final PolicyStats policyStats;
-  private final Admitter admitter;
-  private final int maximumSize;
 
-  private final Node headWindow;
-  private final Node headProbation;
-  private final Node headProtected;
+    private final Long2ObjectMap<Node> data;
 
-  private int maxWindow;
-  private int maxProtected;
+    private final PolicyStats policyStats;
 
-  private int sizeWindow;
-  private int sizeProtected;
+    private final Admitter admitter;
 
-  private int pivot;
-  private final int maxPivot;
-  private final int pivotIncrement;
-  private final int pivotDecrement;
+    private final int maximumSize;
 
-  private int sample;
-  private int sampled;
-  private int adjusted;
-  private final int sampleSize;
+    private final Node headWindow;
 
-  private final Membership feedback;
+    private final Node headProbation;
 
-  boolean debug;
-  boolean trace;
+    private final Node headProtected;
 
-  @SuppressWarnings("Varifier")
-  public FeedbackWindowTinyLfuPolicy(double percentMain, FeedbackWindowTinyLfuSettings settings) {
-    this.policyStats = new PolicyStats(name() + " (%.0f%%)", 100 * (1.0d - percentMain));
-    this.admitter = Admission.TINYLFU.from(settings.config(), policyStats);
-    this.maximumSize = Math.toIntExact(settings.maximumSize());
+    private int maxWindow;
 
-    int maxMain = (int) (maximumSize * percentMain);
-    this.maxProtected = (int) (maxMain * settings.percentMainProtected());
-    this.maxWindow = Math.min(settings.maximumWindowSize(), maximumSize - maxMain);
-    this.data = new Long2ObjectOpenHashMap<>();
-    this.headProtected = new Node();
-    this.headProbation = new Node();
-    this.headWindow = new Node();
+    private int maxProtected;
 
-    pivot = (int) (settings.percentPivot() * maxWindow);
-    maxPivot = Math.min(settings.maximumWindowSize(), maxProtected);
-    sampleSize = Math.min(settings.maximumSampleSize(), maximumSize);
-    feedback = settings.membership().filter().create(settings.filterConfig(sampleSize));
+    private int sizeWindow;
 
-    checkState(settings.pivotIncrement() > 0, "Must increase by at least 1");
-    checkState(settings.pivotDecrement() > 0, "Must decrease by at least 1");
-    pivotIncrement = settings.pivotIncrement();
-    pivotDecrement = settings.pivotDecrement();
+    private int sizeProtected;
 
-    printSegmentSizes();
-  }
+    private int pivot;
 
-  /** Returns all variations of this policy based on the configuration parameters. */
-  public static Set<Policy> policies(Config config) {
-    var settings = new FeedbackWindowTinyLfuSettings(config);
-    return settings.percentMain().stream()
-        .map(percentMain -> new FeedbackWindowTinyLfuPolicy(percentMain, settings))
-        .collect(toUnmodifiableSet());
-  }
+    private final int maxPivot;
 
-  @Override
-  public PolicyStats stats() {
-    return policyStats;
-  }
+    private final int pivotIncrement;
 
-  @Override
-  public void record(long key) {
-    if ((sample % sampleSize) == 0) {
-      sampled++;
-    }
-    if (sample % (sampleSize / 2) == 0) {
-      feedback.clear();
-    }
-    sample++;
+    private final int pivotDecrement;
 
-    admitter.record(key);
-    policyStats.recordOperation();
-    @Nullable Node node = data.get(key);
-    if (node == null) {
-      onMiss(key);
-      policyStats.recordMiss();
-    } else if (node.status == Status.WINDOW) {
-      onWindowHit(node);
-      policyStats.recordHit();
-    } else if (node.status == Status.PROBATION) {
-      onProbationHit(node);
-      policyStats.recordHit();
-    } else if (node.status == Status.PROTECTED) {
-      onProtectedHit(node);
-      policyStats.recordHit();
-    } else {
-      throw new IllegalStateException();
-    }
-  }
+    private int sample;
 
-  /** Adds the entry to the admission window, evicting if necessary. */
-  private void onMiss(long key) {
-    var node = new Node(key, Status.WINDOW);
-    node.appendToTail(headWindow);
-    data.put(key, node);
-    sizeWindow++;
-    evict();
-  }
+    private int sampled;
 
-  /** Moves the entry to the MRU position in the admission window. */
-  private void onWindowHit(Node node) {
-    node.moveToTail(headWindow);
-  }
+    private int adjusted;
 
-  /** Promotes the entry to the protected region's MRU position, demoting an entry if necessary. */
-  private void onProbationHit(Node node) {
-    node.remove();
-    node.status = Status.PROTECTED;
-    node.appendToTail(headProtected);
+    private final int sampleSize;
 
-    sizeProtected++;
-    demoteProtected();
-  }
+    private final Membership feedback;
 
-  private void demoteProtected() {
-    if (sizeProtected > maxProtected) {
-      Node demote = requireNonNull(headProtected.next);
-      demote.remove();
-      demote.status = Status.PROBATION;
-      demote.appendToTail(headProbation);
-      sizeProtected--;
-    }
-  }
+    boolean debug;
 
-  /** Moves the entry to the MRU position. */
-  private void onProtectedHit(Node node) {
-    admitter.record(node.key);
-    node.moveToTail(headProtected);
-  }
+    boolean trace;
 
-  /**
-   * Evicts from the admission window into the probation space. If the size exceeds the maximum,
-   * then the admission candidate and probation's victim are evaluated and one is evicted.
-   */
-  private void evict() {
-    if (sizeWindow <= maxWindow) {
-      return;
+    @SuppressWarnings("Varifier")
+    public FeedbackWindowTinyLfuPolicy(double percentMain, FeedbackWindowTinyLfuSettings settings) {
+        this.policyStats = new PolicyStats(name() + " (%.0f%%)", 100 * (1.0d - percentMain));
+        this.admitter = Admission.TINYLFU.from(settings.config(), policyStats);
+        this.maximumSize = Math.toIntExact(settings.maximumSize());
+        int maxMain = (int) (maximumSize * percentMain);
+        this.maxProtected = (int) (maxMain * settings.percentMainProtected());
+        this.maxWindow = Math.min(settings.maximumWindowSize(), maximumSize - maxMain);
+        this.data = new Long2ObjectOpenHashMap<>();
+        this.headProtected = new Node();
+        this.headProbation = new Node();
+        this.headWindow = new Node();
+        pivot = (int) (settings.percentPivot() * maxWindow);
+        maxPivot = Math.min(settings.maximumWindowSize(), maxProtected);
+        sampleSize = Math.min(settings.maximumSampleSize(), maximumSize);
+        feedback = settings.membership().filter().create(settings.filterConfig(sampleSize));
+        checkState(settings.pivotIncrement() > 0, "Must increase by at least 1");
+        checkState(settings.pivotDecrement() > 0, "Must decrease by at least 1");
+        pivotIncrement = settings.pivotIncrement();
+        pivotDecrement = settings.pivotDecrement();
+        printSegmentSizes();
     }
 
-    Node candidate = requireNonNull(headWindow.next);
-    sizeWindow--;
-
-    candidate.remove();
-    candidate.status = Status.PROBATION;
-    candidate.appendToTail(headProbation);
-
-    if (data.size() > maximumSize) {
-      Node evict;
-      Node victim = requireNonNull(headProbation.next);
-      if (admitter.admit(candidate.key, victim.key)) {
-        evict = victim;
-      } else if (adapt(candidate)) {
-        evict = victim;
-      } else {
-        evict = candidate;
-        feedback.put(candidate.key);
-      }
-      data.remove(evict.key);
-      evict.remove();
-
-      policyStats.recordEviction();
-    }
-  }
-
-  private boolean adapt(@Var Node candidate) {
-    if (adjusted == sampled) {
-      // Already adjusted this period
-      return false;
-    }
-
-    if (feedback.mightContain(candidate.key)) {
-      adjusted = sampled;
-
-      // Increase admission window
-      if (pivot < maxPivot) {
-        pivot++;
-
-        maxWindow++;
-        sizeWindow++;
-        maxProtected--;
-
-        demoteProtected();
-        candidate.remove();
-        candidate.status = Status.WINDOW;
-        candidate.appendToTail(headWindow);
-
-        int increments = Math.min(pivotIncrement - 1, maxPivot - pivot);
-        for (int i = 0; i < increments; i++) {
-          if (pivot < maxPivot) {
-            pivot++;
-
-            maxWindow++;
-            sizeWindow++;
-            maxProtected--;
-
-            demoteProtected();
-            requireNonNull(headProbation.next);
-            requireNonNull(headProbation.next.next);
-
-            candidate = headProbation.next.next;
-            candidate.remove();
-            candidate.status = Status.WINDOW;
-            candidate.appendToTail(headWindow);
-          }
-        }
-
-        if (trace) {
-          System.out.println("↑" + maxWindow);
-        }
-      }
-      return true;
-    } else if (sampled > (adjusted + 1)) {
-      adjusted = sampled;
-
-      // Decrease admission window
-      @Var boolean decremented = false;
-      for (int i = 0; i < pivotDecrement; i++) {
-        if (pivot > 0) {
-          pivot--;
-
-          maxWindow--;
-          sizeWindow--;
-          maxProtected++;
-          decremented = true;
-          requireNonNull(headWindow.next);
-
-          candidate = headWindow.next;
-          candidate.remove();
-          candidate.status = Status.PROBATION;
-          candidate.appendToHead(headProbation);
-        }
-      }
-
-      if (trace && decremented) {
-        System.out.println("↓" + maxWindow);
-      }
-    }
-    return false;
-  }
-
-  void printSegmentSizes() {
-    if (debug) {
-      System.out.printf(US, "maxWindow=%d, maxProtected=%d, percentWindow=%.1f%n",
-          maxWindow, maxProtected, (double) (100 * maxWindow) / maximumSize);
-    }
-  }
-
-  @Override
-  public void finished() {
-    printSegmentSizes();
-
-    long windowSize = data.values().stream().filter(n -> n.status == Status.WINDOW).count();
-    long probationSize = data.values().stream().filter(n -> n.status == Status.PROBATION).count();
-    long protectedSize = data.values().stream().filter(n -> n.status == Status.PROTECTED).count();
-
-    checkState(windowSize == sizeWindow, "%s != %s", windowSize, sizeWindow);
-    checkState(protectedSize == sizeProtected);
-    checkState(probationSize == data.size() - windowSize - protectedSize);
-
-    checkState(data.size() <= maximumSize, data.size());
-  }
-
-  enum Status {
-    WINDOW, PROBATION, PROTECTED
-  }
-
-  /** A node on the double-linked list. */
-  static final class Node {
-    final long key;
-
-    @Nullable Node prev;
-    @Nullable Node next;
-    @Nullable Status status;
-
-    /** Creates a new sentinel node. */
-    public Node() {
-      this.key = Integer.MIN_VALUE;
-      this.prev = this;
-      this.next = this;
-    }
-
-    /** Creates a new, unlinked node. */
-    public Node(long key, Status status) {
-      this.status = status;
-      this.key = key;
-    }
-
-    public void moveToTail(Node head) {
-      remove();
-      appendToTail(head);
-    }
-
-    /** Appends the node to the tail of the list. */
-    public void appendToHead(Node head) {
-      requireNonNull(head.next);
-      Node first = head.next;
-      head.next = this;
-      first.prev = this;
-      prev = head;
-      next = first;
-    }
-
-    /** Appends the node to the tail of the list. */
-    public void appendToTail(Node head) {
-      requireNonNull(head.prev);
-      Node tail = head.prev;
-      head.prev = this;
-      tail.next = this;
-      next = head;
-      prev = tail;
-    }
-
-    /** Removes the node from the list. */
-    public void remove() {
-      requireNonNull(prev);
-      requireNonNull(next);
-      prev.next = next;
-      next.prev = prev;
-      next = prev = null;
+    public static Set<Policy> policies(Config config) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public String toString() {
-      return MoreObjects.toStringHelper(this)
-          .add("key", key)
-          .add("status", status)
-          .toString();
+    public PolicyStats stats() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  public static final class FeedbackWindowTinyLfuSettings extends BasicSettings {
-    public FeedbackWindowTinyLfuSettings(Config config) {
-      super(config);
+    @Override
+    public void record(long key) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    public List<Double> percentMain() {
-      return config().getDoubleList("feedback-window-tiny-lfu.percent-main");
+
+    /**
+     * Adds the entry to the admission window, evicting if necessary.
+     */
+    private void onMiss(long key) {
+        var node = new Node(key, Status.WINDOW);
+        node.appendToTail(headWindow);
+        data.put(key, node);
+        sizeWindow++;
+        evict();
     }
-    public double percentMainProtected() {
-      return config().getDouble("feedback-window-tiny-lfu.percent-main-protected");
+
+    /**
+     * Moves the entry to the MRU position in the admission window.
+     */
+    private void onWindowHit(Node node) {
+        node.moveToTail(headWindow);
     }
-    public double percentPivot() {
-      return config().getDouble("feedback-window-tiny-lfu.percent-pivot");
+
+    /**
+     * Promotes the entry to the protected region's MRU position, demoting an entry if necessary.
+     */
+    private void onProbationHit(Node node) {
+        node.remove();
+        node.status = Status.PROTECTED;
+        node.appendToTail(headProtected);
+        sizeProtected++;
+        demoteProtected();
     }
-    public int pivotIncrement() {
-      return config().getInt("feedback-window-tiny-lfu.pivot-increment");
+
+    private void demoteProtected() {
+        if (sizeProtected > maxProtected) {
+            Node demote = requireNonNull(headProtected.next);
+            demote.remove();
+            demote.status = Status.PROBATION;
+            demote.appendToTail(headProbation);
+            sizeProtected--;
+        }
     }
-    public int pivotDecrement() {
-      return config().getInt("feedback-window-tiny-lfu.pivot-decrement");
+
+    /**
+     * Moves the entry to the MRU position.
+     */
+    private void onProtectedHit(Node node) {
+        admitter.record(node.key);
+        node.moveToTail(headProtected);
     }
-    public int maximumWindowSize() {
-      return config().getInt("feedback-window-tiny-lfu.maximum-window-size");
+
+    /**
+     * Evicts from the admission window into the probation space. If the size exceeds the maximum,
+     * then the admission candidate and probation's victim are evaluated and one is evicted.
+     */
+    private void evict() {
+        if (sizeWindow <= maxWindow) {
+            return;
+        }
+        Node candidate = requireNonNull(headWindow.next);
+        sizeWindow--;
+        candidate.remove();
+        candidate.status = Status.PROBATION;
+        candidate.appendToTail(headProbation);
+        if (data.size() > maximumSize) {
+            Node evict;
+            Node victim = requireNonNull(headProbation.next);
+            if (admitter.admit(candidate.key, victim.key)) {
+                evict = victim;
+            } else if (adapt(candidate)) {
+                evict = victim;
+            } else {
+                evict = candidate;
+                feedback.put(candidate.key);
+            }
+            data.remove(evict.key);
+            evict.remove();
+            policyStats.recordEviction();
+        }
     }
-    public int maximumSampleSize() {
-      return config().getInt("feedback-window-tiny-lfu.maximum-sample-size");
+
+    private boolean adapt(@Var Node candidate) {
+        if (adjusted == sampled) {
+            // Already adjusted this period
+            return false;
+        }
+        if (feedback.mightContain(candidate.key)) {
+            adjusted = sampled;
+            // Increase admission window
+            if (pivot < maxPivot) {
+                pivot++;
+                maxWindow++;
+                sizeWindow++;
+                maxProtected--;
+                demoteProtected();
+                candidate.remove();
+                candidate.status = Status.WINDOW;
+                candidate.appendToTail(headWindow);
+                int increments = Math.min(pivotIncrement - 1, maxPivot - pivot);
+                for (int i = 0; i < increments; i++) {
+                    if (pivot < maxPivot) {
+                        pivot++;
+                        maxWindow++;
+                        sizeWindow++;
+                        maxProtected--;
+                        demoteProtected();
+                        requireNonNull(headProbation.next);
+                        requireNonNull(headProbation.next.next);
+                        candidate = headProbation.next.next;
+                        candidate.remove();
+                        candidate.status = Status.WINDOW;
+                        candidate.appendToTail(headWindow);
+                    }
+                }
+                if (trace) {
+                    System.out.println("↑" + maxWindow);
+                }
+            }
+            return true;
+        } else if (sampled > (adjusted + 1)) {
+            adjusted = sampled;
+            // Decrease admission window
+            @Var
+            boolean decremented = false;
+            for (int i = 0; i < pivotDecrement; i++) {
+                if (pivot > 0) {
+                    pivot--;
+                    maxWindow--;
+                    sizeWindow--;
+                    maxProtected++;
+                    decremented = true;
+                    requireNonNull(headWindow.next);
+                    candidate = headWindow.next;
+                    candidate.remove();
+                    candidate.status = Status.PROBATION;
+                    candidate.appendToHead(headProbation);
+                }
+            }
+            if (trace && decremented) {
+                System.out.println("↓" + maxWindow);
+            }
+        }
+        return false;
     }
-    public double adaptiveFpp() {
-      return config().getDouble("feedback-window-tiny-lfu.adaptive-fpp");
+
+    void printSegmentSizes() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    public Config filterConfig(int sampleSize) {
-      return ConfigFactory
-          .parseMap(Map.of(
-              "membership.fpp", adaptiveFpp(),
-              "maximum-size", sampleSize))
-          .withFallback(config());
+
+    @Override
+    public void finished() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
+
+    enum Status {
+
+        WINDOW, PROBATION, PROTECTED
+    }
+
+    /**
+     * A node on the double-linked list.
+     */
+    static final class Node {
+
+        final long key;
+
+        @Nullable
+        Node prev;
+
+        @Nullable
+        Node next;
+
+        @Nullable
+        Status status;
+
+        /**
+         * Creates a new sentinel node.
+         */
+        public Node() {
+            this.key = Integer.MIN_VALUE;
+            this.prev = this;
+            this.next = this;
+        }
+
+        /**
+         * Creates a new, unlinked node.
+         */
+        public Node(long key, Status status) {
+            this.status = status;
+            this.key = key;
+        }
+
+        public void moveToTail(Node head) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public void appendToHead(Node head) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public void appendToTail(Node head) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public void remove() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public String toString() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
+
+    public static final class FeedbackWindowTinyLfuSettings extends BasicSettings {
+
+        public FeedbackWindowTinyLfuSettings(Config config) {
+            super(config);
+        }
+
+        public List<Double> percentMain() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public double percentMainProtected() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public double percentPivot() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public int pivotIncrement() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public int pivotDecrement() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public int maximumWindowSize() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public int maximumSampleSize() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public double adaptiveFpp() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public Config filterConfig(int sampleSize) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
 }

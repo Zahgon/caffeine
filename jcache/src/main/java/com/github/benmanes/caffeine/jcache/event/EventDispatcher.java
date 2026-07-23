@@ -16,7 +16,6 @@
 package com.github.benmanes.caffeine.jcache.event;
 
 import static java.util.Objects.requireNonNull;
-
 import java.lang.System.Logger;
 import java.lang.System.Logger.Level;
 import java.util.ArrayList;
@@ -28,15 +27,12 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
-
 import javax.cache.Cache;
 import javax.cache.configuration.CacheEntryListenerConfiguration;
 import javax.cache.event.CacheEntryEventFilter;
 import javax.cache.event.CacheEntryListener;
 import javax.cache.event.EventType;
-
 import org.jspecify.annotations.Nullable;
-
 import com.google.errorprone.annotations.Var;
 
 /**
@@ -65,197 +61,102 @@ import com.google.errorprone.annotations.Var;
  * @author ben.manes@gmail.com (Ben Manes)
  */
 public final class EventDispatcher<K, V> {
-  static final Logger logger = System.getLogger(EventDispatcher.class.getName());
 
-  final ConcurrentMap<
-      Registration<K, V>,
-      ConcurrentMap<K, CompletableFuture<@Nullable Void>>> dispatchQueues;
-  final ThreadLocal<List<CompletableFuture<@Nullable Void>>> pending;
-  final Executor executor;
+    static final Logger logger = System.getLogger(EventDispatcher.class.getName());
 
-  public EventDispatcher(Executor executor) {
-    this.pending = ThreadLocal.withInitial(ArrayList::new);
-    this.dispatchQueues = new ConcurrentHashMap<>();
-    this.executor = requireNonNull(executor);
-  }
+    final ConcurrentMap<Registration<K, V>, ConcurrentMap<K, CompletableFuture<@Nullable Void>>> dispatchQueues;
 
-  /** Returns the cache entry listener registrations. */
-  public Set<Registration<K, V>> registrations() {
-    return Collections.unmodifiableSet(dispatchQueues.keySet());
-  }
+    final ThreadLocal<List<CompletableFuture<@Nullable Void>>> pending;
 
-  /**
-   * Registers a cache entry listener based on the supplied configuration.
-   *
-   * @param configuration the listener's configuration.
-   */
-  @SuppressWarnings("PMD.CloseResource")
-  public void register(CacheEntryListenerConfiguration<K, V> configuration) {
-    if (configuration.getCacheEntryListenerFactory() == null) {
-      return;
-    }
-    var listener = new EventTypeAwareListener<K, V>(
-        configuration.getCacheEntryListenerFactory().create());
+    final Executor executor;
 
-    var factory = configuration.getCacheEntryEventFilterFactory();
-    CacheEntryEventFilter<K, V> filter = (factory == null)
-        ? event -> true
-        : new EventTypeFilter<>(listener, factory.create());
-
-    var registration = new Registration<>(configuration, filter, listener);
-    dispatchQueues.putIfAbsent(registration, new ConcurrentHashMap<>());
-  }
-
-  /**
-   * Deregisters a cache entry listener based on the supplied configuration.
-   *
-   * @param configuration the listener's configuration.
-   */
-  public void deregister(CacheEntryListenerConfiguration<K, V> configuration) {
-    requireNonNull(configuration);
-    dispatchQueues.keySet().removeIf(registration ->
-        configuration.equals(registration.getConfiguration()));
-  }
-
-  /**
-   * Publishes a creation event for the entry to the interested listeners.
-   *
-   * @param cache the cache where the entry was created
-   * @param key the entry's key
-   * @param value the entry's value
-   */
-  public void publishCreated(Cache<K, V> cache, K key, V value) {
-    publish(cache, EventType.CREATED, key, /* hasOldValue= */ false,
-        /* oldValue= */ null, /* newValue= */ value, /* quiet= */ false);
-  }
-
-  /**
-   * Publishes an update event for the entry to the interested listeners.
-   *
-   * @param cache the cache where the entry was updated
-   * @param key the entry's key
-   * @param oldValue the entry's old value
-   * @param newValue the entry's new value
-   */
-  public void publishUpdated(Cache<K, V> cache, K key, V oldValue, V newValue) {
-    publish(cache, EventType.UPDATED, key, /* hasOldValue= */ true,
-        oldValue, newValue, /* quiet= */ false);
-  }
-
-  /**
-   * Publishes a removal event for the entry to the interested listeners.
-   *
-   * @param cache the cache where the entry was removed
-   * @param key the entry's key
-   * @param value the entry's value
-   */
-  public void publishRemoved(Cache<K, V> cache, K key, V value) {
-    publish(cache, EventType.REMOVED, key, /* hasOldValue= */ true,
-        /* oldValue= */ value, /* newValue= */ value, /* quiet= */ false);
-  }
-
-  /**
-   * Publishes a removal event for the entry to the interested listeners. This method does not
-   * register the synchronous listener's future with {@link #awaitSynchronous()}.
-   *
-   * @param cache the cache where the entry was removed
-   * @param key the entry's key
-   * @param value the entry's value
-   */
-  public void publishRemovedQuietly(Cache<K, V> cache, K key, V value) {
-    publish(cache, EventType.REMOVED, key, /* hasOldValue= */ true,
-        /* oldValue= */ value, /* newValue= */ value, /* quiet= */ true);
-  }
-
-  /**
-   * Publishes an expiration event for the entry to the interested listeners.
-   *
-   * @param cache the cache where the entry expired
-   * @param key the entry's key
-   * @param value the entry's value
-   */
-  public void publishExpired(Cache<K, V> cache, K key, V value) {
-    publish(cache, EventType.EXPIRED, key, /* hasOldValue= */ true,
-        /* oldValue= */ value, /* newValue= */ value, /* quiet= */ false);
-  }
-
-  /**
-   * Publishes an expiration event for the entry to the interested listeners. This method does not
-   * register the synchronous listener's future with {@link #awaitSynchronous()}.
-   *
-   * @param cache the cache where the entry expired
-   * @param key the entry's key
-   * @param value the entry's value
-   */
-  public void publishExpiredQuietly(Cache<K, V> cache, K key, V value) {
-    publish(cache, EventType.EXPIRED, key, /* hasOldValue= */ true,
-        /* oldValue= */ value, /* newValue= */ value, /* quiet= */ true);
-  }
-
-  /**
-   * Blocks until all of the synchronous listeners have finished processing the events this thread
-   * published.
-   */
-  public void awaitSynchronous() {
-    var futures = pending.get();
-    if (futures.isEmpty()) {
-      return;
-    }
-    try {
-      CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
-    } catch (CompletionException e) {
-      logger.log(Level.WARNING, "", e);
-    } finally {
-      futures.clear();
-    }
-  }
-
-  /**
-   * Ignores and clears the queued futures to the synchronous listeners that are processing events
-   * this thread published.
-   */
-  public void ignoreSynchronous() {
-    pending.get().clear();
-  }
-
-  /** Broadcasts the event to the interested listener's dispatch queues. */
-  @SuppressWarnings("FutureReturnValueIgnored")
-  private void publish(Cache<K, V> cache, EventType eventType, K key,
-      boolean hasOldValue, @Nullable V oldValue, @Nullable V newValue, boolean quiet) {
-    if (dispatchQueues.isEmpty()) {
-      return;
+    public EventDispatcher(Executor executor) {
+        this.pending = ThreadLocal.withInitial(ArrayList::new);
+        this.dispatchQueues = new ConcurrentHashMap<>();
+        this.executor = requireNonNull(executor);
     }
 
-    @Var JCacheEntryEvent<K, V> event = null;
-    for (var entry : dispatchQueues.entrySet()) {
-      var registration = entry.getKey();
-      if (!registration.getCacheEntryListener().isCompatible(eventType)) {
-        continue;
-      }
-      if (event == null) {
-        event = new JCacheEntryEvent<>(cache, eventType, key, hasOldValue, oldValue, newValue);
-      }
-      if (!registration.getCacheEntryFilter().evaluate(event)) {
-        continue;
-      }
+    public Set<Registration<K, V>> registrations() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-      JCacheEntryEvent<K, V> e = event;
-      var dispatchQueue = entry.getValue();
-      var future = dispatchQueue.compute(key, (k, queue) -> {
-        Runnable action = () -> registration.getCacheEntryListener().dispatch(e);
-        return (queue == null)
-            ? CompletableFuture.runAsync(action, executor)
-            : queue.thenRunAsync(action, executor);
-      });
-      future.whenComplete((result, error) -> {
-        // optimistic check to avoid locking if not a match
-        if (dispatchQueue.get(key) == future) {
-          dispatchQueue.remove(key, future);
+    @SuppressWarnings("PMD.CloseResource")
+    public void register(CacheEntryListenerConfiguration<K, V> configuration) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public void deregister(CacheEntryListenerConfiguration<K, V> configuration) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public void publishCreated(Cache<K, V> cache, K key, V value) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public void publishUpdated(Cache<K, V> cache, K key, V oldValue, V newValue) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public void publishRemoved(Cache<K, V> cache, K key, V value) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public void publishRemovedQuietly(Cache<K, V> cache, K key, V value) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public void publishExpired(Cache<K, V> cache, K key, V value) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public void publishExpiredQuietly(Cache<K, V> cache, K key, V value) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public void awaitSynchronous() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public void ignoreSynchronous() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    /**
+     * Broadcasts the event to the interested listener's dispatch queues.
+     */
+    @SuppressWarnings("FutureReturnValueIgnored")
+    private void publish(Cache<K, V> cache, EventType eventType, K key, boolean hasOldValue, @Nullable V oldValue, @Nullable V newValue, boolean quiet) {
+        if (dispatchQueues.isEmpty()) {
+            return;
         }
-      });
-      if (registration.isSynchronous() && !quiet) {
-        pending.get().add(future);
-      }
+        @Var
+        JCacheEntryEvent<K, V> event = null;
+        for (var entry : dispatchQueues.entrySet()) {
+            var registration = entry.getKey();
+            if (!registration.getCacheEntryListener().isCompatible(eventType)) {
+                continue;
+            }
+            if (event == null) {
+                event = new JCacheEntryEvent<>(cache, eventType, key, hasOldValue, oldValue, newValue);
+            }
+            if (!registration.getCacheEntryFilter().evaluate(event)) {
+                continue;
+            }
+            JCacheEntryEvent<K, V> e = event;
+            var dispatchQueue = entry.getValue();
+            var future = dispatchQueue.compute(key, (k, queue) -> {
+                Runnable action = () -> registration.getCacheEntryListener().dispatch(e);
+                return (queue == null) ? CompletableFuture.runAsync(action, executor) : queue.thenRunAsync(action, executor);
+            });
+            future.whenComplete((result, error) -> {
+                // optimistic check to avoid locking if not a match
+                if (dispatchQueue.get(key) == future) {
+                    dispatchQueue.remove(key, future);
+                }
+            });
+            if (registration.isSynchronous() && !quiet) {
+                pending.get().add(future);
+            }
+        }
     }
-  }
 }

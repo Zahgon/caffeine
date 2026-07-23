@@ -16,7 +16,6 @@
 package com.github.benmanes.caffeine.cache;
 
 import static java.util.Objects.requireNonNull;
-
 import java.util.AbstractMap.SimpleEntry;
 import java.util.concurrent.ConcurrentMap;
 
@@ -26,27 +25,23 @@ import java.util.concurrent.ConcurrentMap;
  * @author ben.manes@gmail.com (Ben Manes)
  */
 final class WriteThroughEntry<K, V> extends SimpleEntry<K, V> {
-  private static final long serialVersionUID = 1;
 
-  @SuppressWarnings("serial")
-  private final ConcurrentMap<K, V> map;
+    private static final long serialVersionUID = 1;
 
-  WriteThroughEntry(ConcurrentMap<K, V> map, K key, V value) {
-    super(key, value);
-    this.map = requireNonNull(map);
-  }
+    @SuppressWarnings("serial")
+    private final ConcurrentMap<K, V> map;
 
-  @Override
-  public V setValue(V value) {
-    // See ConcurrentHashMap: "Sets our entry's value and writes through to the map. The value to
-    // return is somewhat arbitrary here. Since we do not necessarily track asynchronous changes,
-    // the most recent "previous" value could be different from what we return (or could even have
-    // been removed, in which case the put will re-establish). We do not and cannot guarantee more."
-    map.put(getKey(), value);
-    return super.setValue(value);
-  }
+    WriteThroughEntry(ConcurrentMap<K, V> map, K key, V value) {
+        super(key, value);
+        this.map = requireNonNull(map);
+    }
 
-  Object writeReplace() {
-    return new SimpleEntry<>(this);
-  }
+    @Override
+    public V setValue(V value) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    Object writeReplace() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

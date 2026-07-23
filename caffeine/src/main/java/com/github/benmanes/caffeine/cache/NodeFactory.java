@@ -20,9 +20,7 @@ import java.lang.invoke.MethodType;
 import java.lang.ref.ReferenceQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-
 import org.jspecify.annotations.Nullable;
-
 import com.github.benmanes.caffeine.cache.References.LookupKeyReference;
 import com.github.benmanes.caffeine.cache.References.WeakKeyReference;
 import com.google.errorprone.annotations.Var;
@@ -33,138 +31,95 @@ import com.google.errorprone.annotations.Var;
  * @author ben.manes@gmail.com (Ben Manes)
  */
 interface NodeFactory<K, V> {
-  MethodHandles.Lookup LOOKUP = MethodHandles.lookup();
-  MethodType FACTORY = MethodType.methodType(void.class);
-  ConcurrentMap<String, NodeFactory<Object, Object>> FACTORIES = new ConcurrentHashMap<>();
 
-  RetiredStrongKey RETIRED_STRONG_KEY = new RetiredStrongKey();
-  RetiredWeakKey RETIRED_WEAK_KEY = new RetiredWeakKey();
-  DeadStrongKey DEAD_STRONG_KEY = new DeadStrongKey();
-  DeadWeakKey DEAD_WEAK_KEY = new DeadWeakKey();
-  String ACCESS_TIME = "accessTime";
-  String WRITE_TIME = "writeTime";
-  String VALUE = "value";
-  String KEY = "key";
+    MethodHandles.Lookup LOOKUP = MethodHandles.lookup();
 
-  /** Returns whether this factory supports weak values. */
-  default boolean weakValues() {
-    return false;
-  }
+    MethodType FACTORY = MethodType.methodType(void.class);
 
-  /** Returns whether this factory supports soft values. */
-  default boolean softValues() {
-    return false;
-  }
+    ConcurrentMap<String, NodeFactory<Object, Object>> FACTORIES = new ConcurrentHashMap<>();
 
-  /** Returns a node optimized for the specified features. */
-  Node<K, V> newNode(K key, @Nullable ReferenceQueue<K> keyReferenceQueue, V value,
-      @Nullable ReferenceQueue<V> valueReferenceQueue, int weight, long now);
+    RetiredStrongKey RETIRED_STRONG_KEY = new RetiredStrongKey();
 
-  /** Returns a node optimized for the specified features. */
-  Node<K, V> newNode(Object keyReference, V value,
-      @Nullable ReferenceQueue<V> valueReferenceQueue, int weight, long now);
+    RetiredWeakKey RETIRED_WEAK_KEY = new RetiredWeakKey();
 
-  /**
-   * Returns a key suitable for inserting into the cache. If the cache holds keys strongly then the
-   * key is returned. If the cache holds keys weakly then a {@link java.lang.ref.Reference<K>}
-   * holding the key argument is returned.
-   */
-  default Object newReferenceKey(K key, ReferenceQueue<K> referenceQueue) {
-    return key;
-  }
+    DeadStrongKey DEAD_STRONG_KEY = new DeadStrongKey();
 
-  /**
-   * Returns a key suitable for looking up an entry in the cache. If the cache holds keys strongly
-   * then the key is returned. If the cache holds keys weakly then a {@link LookupKeyReference}
-   * holding the key argument is returned.
-   */
-  default Object newLookupKey(Object key) {
-    return key;
-  }
+    DeadWeakKey DEAD_WEAK_KEY = new DeadWeakKey();
 
-  /** Returns a factory optimized for the specified features. */
-  @SuppressWarnings("unchecked")
-  static <K, V> NodeFactory<K, V> newFactory(Caffeine<K, V> builder, boolean isAsync) {
-    if (builder.interner) {
-      return (NodeFactory<K, V>) Interned.FACTORY;
+    String ACCESS_TIME = "accessTime";
+
+    String WRITE_TIME = "writeTime";
+
+    String VALUE = "value";
+
+    String KEY = "key";
+
+    default boolean weakValues() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    var className = getClassName(builder, isAsync);
-    return loadFactory(className);
-  }
 
-  static String getClassName(Caffeine<?, ?> builder, boolean isAsync) {
-    var className = new StringBuilder();
-    if (builder.isStrongKeys()) {
-      className.append('P');
-    } else {
-      className.append('F');
+    default boolean softValues() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    if (builder.isStrongValues()) {
-      className.append('S');
-    } else if (builder.isWeakValues()) {
-      className.append('W');
-    } else {
-      className.append('D');
+
+    /**
+     * Returns a node optimized for the specified features.
+     */
+    Node<K, V> newNode(K key, @Nullable ReferenceQueue<K> keyReferenceQueue, V value, @Nullable ReferenceQueue<V> valueReferenceQueue, int weight, long now);
+
+    /**
+     * Returns a node optimized for the specified features.
+     */
+    Node<K, V> newNode(Object keyReference, V value, @Nullable ReferenceQueue<V> valueReferenceQueue, int weight, long now);
+
+    default Object newReferenceKey(K key, ReferenceQueue<K> referenceQueue) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    if (builder.expiresVariable()) {
-      if (builder.refreshAfterWrite()) {
-        className.append('A');
-        if (builder.evicts()) {
-          className.append('W');
+
+    default Object newLookupKey(Object key) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @SuppressWarnings("unchecked")
+    static <K, V> NodeFactory<K, V> newFactory(Caffeine<K, V> builder, boolean isAsync) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    static String getClassName(Caffeine<?, ?> builder, boolean isAsync) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @SuppressWarnings("unchecked")
+    static <K, V> NodeFactory<K, V> loadFactory(String className) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @SuppressWarnings("unchecked")
+    static NodeFactory<Object, Object> newFactory(String className) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    final class RetiredWeakKey extends WeakKeyReference<Object> {
+
+        RetiredWeakKey() {
+            super(/* key= */
+            null, /* queue= */
+            null);
         }
-      } else {
-        className.append('W');
-      }
-    } else {
-      if (builder.expiresAfterAccess()) {
-        className.append('A');
-      }
-      if (builder.expiresAfterWrite()) {
-        className.append('W');
-      }
     }
-    if (builder.refreshAfterWrite()) {
-      className.append('R');
-    }
-    if (builder.evicts()) {
-      className.append('M');
-      if (isAsync || (builder.isWeighted() && (builder.weigher != Weigher.singletonWeigher()))) {
-        className.append('W');
-      } else {
-        className.append('S');
-      }
-    }
-    return className.toString();
-  }
 
-  @SuppressWarnings("unchecked")
-  static <K, V> NodeFactory<K, V> loadFactory(String className) {
-    @Var var factory = FACTORIES.get(className);
-    if (factory == null) {
-      factory = FACTORIES.computeIfAbsent(className, NodeFactory::newFactory);
-    }
-    return (NodeFactory<K, V>) factory;
-  }
+    final class DeadWeakKey extends WeakKeyReference<Object> {
 
-  @SuppressWarnings("unchecked")
-  static NodeFactory<Object, Object> newFactory(String className) {
-    try {
-      var clazz = LOOKUP.findClass(Node.class.getPackageName() + "." + className);
-      var constructor = LOOKUP.findConstructor(clazz, FACTORY);
-      return (NodeFactory<Object, Object>) constructor.invoke();
-    } catch (RuntimeException | Error e) {
-      throw e;
-    } catch (Throwable t) {
-      throw new IllegalStateException(className, t);
+        DeadWeakKey() {
+            super(/* key= */
+            null, /* queue= */
+            null);
+        }
     }
-  }
 
-  final class RetiredWeakKey extends WeakKeyReference<Object> {
-    RetiredWeakKey() { super(/* key= */ null, /* queue= */ null); }
-  }
-  final class DeadWeakKey extends WeakKeyReference<Object> {
-    DeadWeakKey() { super(/* key= */ null, /* queue= */ null); }
-  }
-  final class RetiredStrongKey {}
-  final class DeadStrongKey {}
+    final class RetiredStrongKey {
+    }
+
+    final class DeadStrongKey {
+    }
 }

@@ -19,7 +19,6 @@ import static com.github.benmanes.caffeine.cache.Caffeine.calculateHashMapCapaci
 import static com.github.benmanes.caffeine.cache.Caffeine.hasMethodOverride;
 import static com.github.benmanes.caffeine.cache.LocalAsyncCache.composeResult;
 import static java.util.Objects.requireNonNull;
-
 import java.lang.System.Logger;
 import java.lang.System.Logger.Level;
 import java.util.Collections;
@@ -31,9 +30,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
-
 import org.jspecify.annotations.Nullable;
-
 import com.google.errorprone.annotations.Var;
 
 /**
@@ -43,188 +40,61 @@ import com.google.errorprone.annotations.Var;
  * @author ben.manes@gmail.com (Ben Manes)
  */
 interface LocalLoadingCache<K, V> extends LocalManualCache<K, V>, LoadingCache<K, V> {
-  Logger logger = System.getLogger(LocalLoadingCache.class.getName());
 
-  /** Returns the {@link AsyncCacheLoader} used by this cache. */
-  AsyncCacheLoader<? super K, V> cacheLoader();
+    Logger logger = System.getLogger(LocalLoadingCache.class.getName());
 
-  /** Returns the {@link CacheLoader#load} as a mapping function. */
-  Function<K, @Nullable V> mappingFunction();
+    /**
+     * Returns the {@link AsyncCacheLoader} used by this cache.
+     */
+    AsyncCacheLoader<? super K, V> cacheLoader();
 
-  /** Returns the {@link CacheLoader#loadAll} as a mapping function, if implemented. */
-  @Nullable Function<Set<? extends K>, Map<K, V>> bulkMappingFunction();
+    /**
+     * Returns the {@link CacheLoader#load} as a mapping function.
+     */
+    Function<K, @Nullable V> mappingFunction();
 
-  @Override
-  @SuppressWarnings("NullAway")
-  default V get(K key) {
-    return cache().computeIfAbsent(key, mappingFunction());
-  }
+    /**
+     * Returns the {@link CacheLoader#loadAll} as a mapping function, if implemented.
+     */
+    @Nullable
+    Function<Set<? extends K>, Map<K, V>> bulkMappingFunction();
 
-  @Override
-  default Map<K, V> getAll(Iterable<? extends K> keys) {
-    Function<Set<? extends K>, Map<K, V>> mappingFunction = bulkMappingFunction();
-    return (mappingFunction == null)
-        ? loadSequentially(keys)
-        : getAll(keys, mappingFunction);
-  }
-
-  /** Sequentially loads each missing entry. */
-  default Map<K, V> loadSequentially(Iterable<? extends K> keys) {
-    var result = new LinkedHashMap<K, @Nullable V>(calculateHashMapCapacity(keys));
-    for (K key : keys) {
-      result.put(key, null);
+    @Override
+    @SuppressWarnings("NullAway")
+    default V get(K key) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
-    @Var int count = 0;
-    int size = result.size();
-    try {
-      for (var iter = result.entrySet().iterator(); iter.hasNext();) {
-        Map.Entry<K, @Nullable V> entry = iter.next();
-        count++;
-
-        V value = get(entry.getKey());
-        if (value == null) {
-          iter.remove();
-        } else {
-          entry.setValue(value);
-        }
-      }
-    } catch (Throwable t) {
-      cache().statsCounter().recordMisses(size - count);
-      throw t;
-    }
-    @SuppressWarnings("NullableProblems")
-    Map<K, V> unmodifiable = Collections.unmodifiableMap(result);
-    return unmodifiable;
-  }
-
-  @Override
-  @SuppressWarnings("FutureReturnValueIgnored")
-  default CompletableFuture<V> refresh(K key) {
-    requireNonNull(key);
-
-    var startTime = new long[1];
-    @SuppressWarnings({"unchecked", "Varifier"})
-    @Nullable V[] oldValue = (V[]) new Object[1];
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    @Nullable CompletableFuture<? extends V>[] reloading = new CompletableFuture[1];
-    Object keyReference = cache().referenceKey(key);
-
-    var future = cache().refreshes().compute(keyReference, (k, existing) -> {
-      if ((existing != null) && !Async.isReady(existing) && !cache().isPendingEviction(key)) {
-        return existing;
-      }
-
-      try {
-        startTime[0] = cache().statsTicker().read();
-        oldValue[0] = cache().getIfPresentQuietly(key);
-        var refreshFuture = (oldValue[0] == null)
-            ? cacheLoader().asyncLoad(key, cache().executor())
-            : cacheLoader().asyncReload(key, oldValue[0], cache().executor());
-        reloading[0] = requireNonNull(refreshFuture, "Null future");
-        return refreshFuture;
-      } catch (RuntimeException e) {
-        throw e;
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        throw new CompletionException(e);
-      } catch (Exception e) {
-        throw new CompletionException(e);
-      }
-    });
-
-    if (reloading[0] != null) {
-      reloading[0].whenComplete((newValue, error) -> {
-        long loadTime = cache().statsTicker().read() - startTime[0];
-        if (error != null) {
-          if (!(error instanceof CancellationException) && !(error instanceof TimeoutException)) {
-            logger.log(Level.WARNING, "Exception thrown during refresh", error);
-          }
-          cache().refreshes().remove(keyReference, reloading[0]);
-          cache().statsCounter().recordLoadFailure(loadTime);
-          return;
-        }
-
-        var discard = new boolean[1];
-        var preserveTimestamps = new boolean[1];
-        @Nullable V value = cache().compute(key, (K k, @Nullable V currentValue) -> {
-          boolean removed = cache().refreshes().remove(keyReference, reloading[0]);
-          if (removed && (currentValue == oldValue[0])) {
-            return (currentValue == null) && (newValue == null) ? null : newValue;
-          }
-          discard[0] = (currentValue != newValue);
-          preserveTimestamps[0] = true;
-          return currentValue;
-        }, cache().expiry(), /* recordLoad= */ false,
-            /* recordLoadFailure= */ true, preserveTimestamps);
-
-        if (discard[0] && (newValue != null)) {
-          var cause = (value == null) ? RemovalCause.EXPLICIT : RemovalCause.REPLACED;
-          cache().notifyRemoval(key, newValue, cause);
-        }
-        if (newValue == null) {
-          cache().statsCounter().recordLoadFailure(loadTime);
-        } else {
-          cache().statsCounter().recordLoadSuccess(loadTime);
-        }
-      });
+    @Override
+    default Map<K, V> getAll(Iterable<? extends K> keys) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
-    @SuppressWarnings("unchecked")
-    var castedFuture = (CompletableFuture<V>) future;
-    return castedFuture;
-  }
-
-  @Override
-  default CompletableFuture<Map<K, V>> refreshAll(Iterable<? extends K> keys) {
-    var result = new LinkedHashMap<K, CompletableFuture<@Nullable V>>(
-        calculateHashMapCapacity(keys));
-    for (K key : keys) {
-      result.computeIfAbsent(key, this::refresh);
+    default Map<K, V> loadSequentially(Iterable<? extends K> keys) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    return composeResult(result);
-  }
 
-  /** Returns a mapping function that adapts to {@link CacheLoader#load}. */
-  static <K, V> Function<K, @Nullable V> newMappingFunction(CacheLoader<? super K, V> cacheLoader) {
-    return key -> {
-      try {
-        return cacheLoader.load(key);
-      } catch (RuntimeException e) {
-        throw e;
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        throw new CompletionException(e);
-      } catch (Exception e) {
-        throw new CompletionException(e);
-      }
-    };
-  }
-
-  /** Returns a mapping function that adapts to {@link CacheLoader#loadAll}, if implemented. */
-  static <K, V> @Nullable Function<Set<? extends K>, Map<K, V>> newBulkMappingFunction(
-      CacheLoader<? super K, V> cacheLoader) {
-    if (!hasLoadAll(cacheLoader)) {
-      return null;
+    @Override
+    @SuppressWarnings("FutureReturnValueIgnored")
+    default CompletableFuture<V> refresh(K key) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    return keysToLoad -> {
-      try {
-        @SuppressWarnings("unchecked")
-        var loaded = (Map<K, V>) cacheLoader.loadAll(keysToLoad);
-        return loaded;
-      } catch (RuntimeException e) {
-        throw e;
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        throw new CompletionException(e);
-      } catch (Exception e) {
-        throw new CompletionException(e);
-      }
-    };
-  }
 
-  /** Returns whether the supplied cache loader has bulk load functionality. */
-  static boolean hasLoadAll(CacheLoader<?, ?> cacheLoader) {
-    return hasMethodOverride(CacheLoader.class, cacheLoader, "loadAll", Set.class);
-  }
+    @Override
+    default CompletableFuture<Map<K, V>> refreshAll(Iterable<? extends K> keys) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    static <K, V> Function<K, @Nullable V> newMappingFunction(CacheLoader<? super K, V> cacheLoader) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Nullable
+    static <K, V> Function<Set<? extends K>, Map<K, V>> newBulkMappingFunction(CacheLoader<? super K, V> cacheLoader) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    static boolean hasLoadAll(CacheLoader<?, ?> cacheLoader) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

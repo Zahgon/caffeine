@@ -16,9 +16,7 @@
 package com.github.benmanes.caffeine.jcache.event;
 
 import static java.util.Objects.requireNonNull;
-
 import java.util.Objects;
-
 import javax.cache.event.CacheEntryCreatedListener;
 import javax.cache.event.CacheEntryEvent;
 import javax.cache.event.CacheEntryEventFilter;
@@ -27,7 +25,6 @@ import javax.cache.event.CacheEntryListener;
 import javax.cache.event.CacheEntryListenerException;
 import javax.cache.event.CacheEntryRemovedListener;
 import javax.cache.event.CacheEntryUpdatedListener;
-
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -37,49 +34,43 @@ import org.jspecify.annotations.Nullable;
  * @author ben.manes@gmail.com (Ben Manes)
  */
 final class EventTypeFilter<K, V> implements CacheEntryEventFilter<K, V> {
-  private final CacheEntryEventFilter<? super K, ? super V> filter;
-  private final CacheEntryListener<? super K, ? super V> listener;
 
-  public EventTypeFilter(CacheEntryListener<? super K, ? super V> listener,
-      CacheEntryEventFilter<? super K, ? super V> filter) {
-    this.listener = requireNonNull(listener);
-    this.filter = requireNonNull(filter);
-  }
+    private final CacheEntryEventFilter<? super K, ? super V> filter;
 
-  @Override
-  public boolean evaluate(CacheEntryEvent<? extends K, ? extends V> event) {
-    return isCompatible(event) && filter.evaluate(event);
-  }
+    private final CacheEntryListener<? super K, ? super V> listener;
 
-  @SuppressWarnings("StatementSwitchToExpressionSwitch")
-  private boolean isCompatible(CacheEntryEvent<? extends K, ? extends V> event) {
-    switch (event.getEventType()) {
-      case CREATED:
-        return (listener instanceof CacheEntryCreatedListener<?, ?>);
-      case UPDATED:
-        return (listener instanceof CacheEntryUpdatedListener<?, ?>);
-      case REMOVED:
-        return (listener instanceof CacheEntryRemovedListener<?, ?>);
-      case EXPIRED:
-        return (listener instanceof CacheEntryExpiredListener<?, ?>);
+    public EventTypeFilter(CacheEntryListener<? super K, ? super V> listener, CacheEntryEventFilter<? super K, ? super V> filter) {
+        this.listener = requireNonNull(listener);
+        this.filter = requireNonNull(filter);
     }
-    throw new CacheEntryListenerException("Unknown event type: " + event.getEventType());
-  }
 
-  @Override
-  public boolean equals(@Nullable Object o) {
-    if (o == this) {
-      return true;
-    } else if (!(o instanceof EventTypeFilter<?, ?>)) {
-      return false;
+    @Override
+    public boolean evaluate(CacheEntryEvent<? extends K, ? extends V> event) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    var other = (EventTypeFilter<?, ?>) o;
-    return Objects.equals(listener, other.listener)
-        && Objects.equals(filter, other.filter);
-  }
 
-  @Override
-  public int hashCode() {
-    return filter.hashCode();
-  }
+    @SuppressWarnings("StatementSwitchToExpressionSwitch")
+    private boolean isCompatible(CacheEntryEvent<? extends K, ? extends V> event) {
+        switch(event.getEventType()) {
+            case CREATED:
+                return (listener instanceof CacheEntryCreatedListener<?, ?>);
+            case UPDATED:
+                return (listener instanceof CacheEntryUpdatedListener<?, ?>);
+            case REMOVED:
+                return (listener instanceof CacheEntryRemovedListener<?, ?>);
+            case EXPIRED:
+                return (listener instanceof CacheEntryExpiredListener<?, ?>);
+        }
+        throw new CacheEntryListenerException("Unknown event type: " + event.getEventType());
+    }
+
+    @Override
+    public boolean equals(@Nullable Object o) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public int hashCode() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

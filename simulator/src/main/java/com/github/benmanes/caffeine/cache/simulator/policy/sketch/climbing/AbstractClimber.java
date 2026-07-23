@@ -23,67 +23,42 @@ import static com.google.common.base.Preconditions.checkState;
  * @author ben.manes@gmail.com (Ben Manes)
  */
 public abstract class AbstractClimber implements HillClimber {
-  private static final boolean debug = false;
 
-  protected int sampleSize;
-  protected int hitsInMain;
-  protected int hitsInWindow;
-  protected int hitsInSample;
-  protected int missesInSample;
-  protected double previousHitRate;
+    private static final boolean debug = false;
 
-  @Override
-  public void onMiss(long key, boolean isFull) {
-    if (isFull) {
-      missesInSample++;
-    }
-  }
+    protected int sampleSize;
 
-  @Override
-  public void onHit(long key, QueueType queueType, boolean isFull) {
-    if (isFull) {
-      hitsInSample++;
+    protected int hitsInMain;
 
-      if (queueType == QueueType.WINDOW) {
-        hitsInWindow++;
-      } else {
-        hitsInMain++;
-      }
-    }
-  }
+    protected int hitsInWindow;
 
-  @Override
-  public Adaptation adapt(double windowSize, double probationSize,
-      double protectedSize, boolean isFull) {
-    if (!isFull) {
-      return Adaptation.hold();
+    protected int hitsInSample;
+
+    protected int missesInSample;
+
+    protected double previousHitRate;
+
+    @Override
+    public void onMiss(long key, boolean isFull) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
-    checkState(sampleSize > 0, "Sample size may not be zero");
-    int sampleCount = (hitsInSample + missesInSample);
-    if (sampleCount < sampleSize) {
-      return Adaptation.hold();
+    @Override
+    public void onHit(long key, QueueType queueType, boolean isFull) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
-    double hitRate = (double) hitsInSample / sampleCount;
-    Adaptation adaption = Adaptation.adaptBy(adjust(hitRate));
-    resetSample(hitRate);
-
-    if (debug) {
-      System.out.printf("%.2f\t%.2f%n", 100 * hitRate, windowSize);
+    @Override
+    public Adaptation adapt(double windowSize, double probationSize, double protectedSize, boolean isFull) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    return adaption;
-  }
 
-  /** Returns the amount to adapt by. */
-  protected abstract double adjust(double hitRate);
+    /**
+     * Returns the amount to adapt by.
+     */
+    protected abstract double adjust(double hitRate);
 
-  /** Starts the next sample period. */
-  protected void resetSample(double hitRate) {
-    previousHitRate = hitRate;
-    missesInSample = 0;
-    hitsInSample = 0;
-    hitsInWindow = 0;
-    hitsInMain = 0;
-  }
+    protected void resetSample(double hitRate) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

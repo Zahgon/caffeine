@@ -19,15 +19,12 @@ import static com.github.benmanes.caffeine.cache.Caffeine.requireArgument;
 import static com.github.benmanes.caffeine.cache.Caffeine.requireState;
 import static java.util.Locale.US;
 import static java.util.Objects.requireNonNull;
-
 import java.time.Duration;
 import java.time.format.DateTimeParseException;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
-
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
-
 import com.github.benmanes.caffeine.cache.Caffeine.Strength;
 
 /**
@@ -73,328 +70,145 @@ import com.github.benmanes.caffeine.cache.Caffeine.Strength;
  */
 @NullMarked
 public final class CaffeineSpec {
-  static final String SPLIT_OPTIONS = ",";
-  static final String SPLIT_KEY_VALUE = "=";
 
-  final String specification;
+    static final String SPLIT_OPTIONS = ",";
 
-  boolean recordStats;
-  @Nullable Long maximumSize;
-  @Nullable Long maximumWeight;
-  @Nullable Strength keyStrength;
-  @Nullable Strength valueStrength;
-  @Nullable Integer initialCapacity;
-  @Nullable Duration expireAfterWrite;
-  @Nullable Duration expireAfterAccess;
-  @Nullable Duration refreshAfterWrite;
+    static final String SPLIT_KEY_VALUE = "=";
 
-  private CaffeineSpec(String specification) {
-    this.specification = requireNonNull(specification);
+    final String specification;
 
-    @SuppressWarnings("StringSplitter")
-    var options = specification.split(SPLIT_OPTIONS);
-    for (String option : options) {
-      parseOption(option.strip());
-    }
-  }
+    boolean recordStats;
 
-  /**
-   * Returns a {@link Caffeine} builder configured according to this specification.
-   *
-   * @return a builder configured to the specification
-   */
-  Caffeine<Object, Object> toBuilder() {
-    var builder = Caffeine.newBuilder();
-    if (initialCapacity != null) {
-      builder.initialCapacity(initialCapacity);
-    }
-    if (maximumSize != null) {
-      builder.maximumSize(maximumSize);
-    }
-    if (maximumWeight != null) {
-      builder.maximumWeight(maximumWeight);
-    }
-    if (keyStrength != null) {
-      requireState(keyStrength == Strength.WEAK);
-      builder.weakKeys();
-    }
-    if (valueStrength != null) {
-      if (valueStrength == Strength.WEAK) {
-        builder.weakValues();
-      } else {
-        builder.softValues();
-      }
-    }
-    if (expireAfterWrite != null) {
-      builder.expireAfterWrite(expireAfterWrite);
-    }
-    if (expireAfterAccess != null) {
-      builder.expireAfterAccess(expireAfterAccess);
-    }
-    if (refreshAfterWrite != null) {
-      builder.refreshAfterWrite(refreshAfterWrite);
-    }
-    if (recordStats) {
-      builder.recordStats();
-    }
-    return builder;
-  }
+    @Nullable
+    Long maximumSize;
 
-  /**
-   * Creates a CaffeineSpec from a string.
-   *
-   * @param specification the string form
-   * @return the parsed specification
-   */
-  public static CaffeineSpec parse(String specification) {
-    return new CaffeineSpec(specification);
-  }
+    @Nullable
+    Long maximumWeight;
 
-  /** Parses and applies the configuration option. */
-  void parseOption(String option) {
-    if (option.isEmpty()) {
-      return;
+    @Nullable
+    Strength keyStrength;
+
+    @Nullable
+    Strength valueStrength;
+
+    @Nullable
+    Integer initialCapacity;
+
+    @Nullable
+    Duration expireAfterWrite;
+
+    @Nullable
+    Duration expireAfterAccess;
+
+    @Nullable
+    Duration refreshAfterWrite;
+
+    private CaffeineSpec(String specification) {
+        this.specification = requireNonNull(specification);
+        @SuppressWarnings("StringSplitter")
+        var options = specification.split(SPLIT_OPTIONS);
+        for (String option : options) {
+            parseOption(option.strip());
+        }
     }
 
-    @SuppressWarnings("StringSplitter")
-    String[] keyAndValue = option.split(SPLIT_KEY_VALUE, 3);
-    requireArgument(keyAndValue.length <= 2,
-        "key-value pair %s with more than one equals sign", option);
-
-    String key = keyAndValue[0].strip();
-    String value = (keyAndValue.length == 1) ? null : keyAndValue[1].strip();
-
-    configure(option, key, value);
-  }
-
-  /** Configures the setting. */
-  void configure(String option, String key, @Nullable String value) {
-    switch (key) {
-      case "initialCapacity":
-        initialCapacity(key, value);
-        return;
-      case "maximumSize":
-        maximumSize(key, value);
-        return;
-      case "maximumWeight":
-        maximumWeight(key, value);
-        return;
-      case "weakKeys":
-        weakKeys(value);
-        return;
-      case "weakValues":
-        valueStrength(key, value, Strength.WEAK);
-        return;
-      case "softValues":
-        valueStrength(key, value, Strength.SOFT);
-        return;
-      case "expireAfterAccess":
-        expireAfterAccess(key, value);
-        return;
-      case "expireAfterWrite":
-        expireAfterWrite(key, value);
-        return;
-      case "refreshAfterWrite":
-        refreshAfterWrite(key, value);
-        return;
-      case "recordStats":
-        recordStats(value);
-        return;
-      default:
-        throw new IllegalArgumentException("Invalid option " + option);
+    Caffeine<Object, Object> toBuilder() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  /** Configures the initial capacity. */
-  void initialCapacity(String key, @Nullable String value) {
-    requireArgument(initialCapacity == null,
-        "initial capacity was already set to %,d", initialCapacity);
-    initialCapacity = parseInt(key, value);
-  }
-
-  /** Configures the maximum size. */
-  void maximumSize(String key, @Nullable String value) {
-    requireArgument(maximumSize == null,
-        "maximum size was already set to %,d", maximumSize);
-    requireArgument(maximumWeight == null,
-        "maximum weight was already set to %,d", maximumWeight);
-    maximumSize = parseLong(key, value);
-  }
-
-  /** Configures the maximum weight. */
-  void maximumWeight(String key, @Nullable String value) {
-    requireArgument(maximumWeight == null,
-        "maximum weight was already set to %,d", maximumWeight);
-    requireArgument(maximumSize == null,
-        "maximum size was already set to %,d", maximumSize);
-    maximumWeight = parseLong(key, value);
-  }
-
-  /** Configures the keys as weak references. */
-  void weakKeys(@Nullable String value) {
-    requireArgument(value == null, "weak keys does not take a value");
-    requireArgument(keyStrength == null, "weak keys was already set");
-    keyStrength = Strength.WEAK;
-  }
-
-  /** Configures the value as weak or soft references. */
-  void valueStrength(String key, @Nullable String value, Strength strength) {
-    requireArgument(value == null, "%s does not take a value", key);
-    requireArgument(valueStrength == null, "%s was already set to %s", key, valueStrength);
-    valueStrength = strength;
-  }
-
-  /** Configures expire after access. */
-  void expireAfterAccess(String key, @Nullable String value) {
-    requireArgument(expireAfterAccess == null, "expireAfterAccess was already set");
-    expireAfterAccess = parseDuration(key, value);
-  }
-
-  /** Configures expire after write. */
-  void expireAfterWrite(String key, @Nullable String value) {
-    requireArgument(expireAfterWrite == null, "expireAfterWrite was already set");
-    expireAfterWrite = parseDuration(key, value);
-  }
-
-  /** Configures refresh after write. */
-  void refreshAfterWrite(String key, @Nullable String value) {
-    requireArgument(refreshAfterWrite == null, "refreshAfterWrite was already set");
-    refreshAfterWrite = parseDuration(key, value);
-  }
-
-  /** Configures the value as weak or soft references. */
-  void recordStats(@Nullable String value) {
-    requireArgument(value == null, "record stats does not take a value");
-    requireArgument(!recordStats, "record stats was already set");
-    recordStats = true;
-  }
-
-  /** Returns a parsed int value. */
-  static int parseInt(String key, @Nullable String value) {
-    requireArgument((value != null) && !value.isEmpty(), "value of key %s was omitted", key);
-    requireNonNull(value);
-    try {
-      return Integer.parseInt(normalizeNumericLiteral(value));
-    } catch (NumberFormatException e) {
-      throw new IllegalArgumentException(String.format(US,
-          "key %s value was set to %s, must be an integer", key, value), e);
+    public static CaffeineSpec parse(String specification) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  /** Returns a parsed long value. */
-  static long parseLong(String key, @Nullable String value) {
-    requireArgument((value != null) && !value.isEmpty(), "value of key %s was omitted", key);
-    requireNonNull(value);
-    try {
-      return Long.parseLong(normalizeNumericLiteral(value));
-    } catch (NumberFormatException e) {
-      throw new IllegalArgumentException(String.format(US,
-          "key %s value was set to %s, must be a long", key, value), e);
+    void parseOption(String option) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  /** Returns the value after adjusting for underscores in a numeric literal. */
-  static String normalizeNumericLiteral(String value) {
-    boolean invalid = value.startsWith("+_") || value.startsWith("-_")
-        || value.startsWith("_") || value.endsWith("_");
-    return invalid ? value : value.replace("_", "");
-  }
-
-  /** Returns a parsed duration value. */
-  static Duration parseDuration(String key, @Nullable String value) {
-    requireArgument((value != null) && !value.isEmpty(), "value of key %s omitted", key);
-    requireNonNull(value);
-
-    boolean isIsoFormat = value.contains("p") || value.contains("P");
-    Duration duration = isIsoFormat
-        ? parseIsoDuration(key, value)
-        : parseSimpleDuration(key, value);
-    requireArgument(!duration.isNegative(),
-        "key %s invalid format; was %s, but the duration cannot be negative", key, value);
-    return duration;
-  }
-
-  /** Returns a parsed duration using the ISO-8601 format. */
-  static Duration parseIsoDuration(String key, String value) {
-    try {
-      return Duration.parse(value);
-    } catch (DateTimeParseException e) {
-      throw new IllegalArgumentException(String.format(US,
-          "key %s invalid format; was %s, but the duration cannot be parsed", key, value), e);
+    void configure(String option, String key, @Nullable String value) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  /** Returns a parsed duration using the simple time unit format. */
-  static Duration parseSimpleDuration(String key, String value) {
-    long duration = parseLong(key, value.substring(0, value.length() - 1));
-    TimeUnit unit = parseTimeUnit(key, value);
-    return Duration.ofNanos(unit.toNanos(duration));
-  }
-
-  /** Returns a parsed {@link TimeUnit} value. */
-  @SuppressWarnings({"ConstantValue", "StatementSwitchToExpressionSwitch"})
-  static TimeUnit parseTimeUnit(String key, String value) {
-    requireArgument((value != null) && !value.isEmpty(), "value of key %s omitted", key);
-    @SuppressWarnings("null")
-    char lastChar = Character.toLowerCase(value.charAt(value.length() - 1));
-    switch (lastChar) {
-      case 'd':
-        return TimeUnit.DAYS;
-      case 'h':
-        return TimeUnit.HOURS;
-      case 'm':
-        return TimeUnit.MINUTES;
-      case 's':
-        return TimeUnit.SECONDS;
-      default:
-        throw new IllegalArgumentException(String.format(US,
-            "key %s invalid format; was %s, must end with one of [dDhHmMsS]", key, value));
+    void initialCapacity(String key, @Nullable String value) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  @Override
-  public boolean equals(@Nullable Object o) {
-    if (this == o) {
-      return true;
-    } else if (!(o instanceof CaffeineSpec)) {
-      return false;
+    void maximumSize(String key, @Nullable String value) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    var spec = (CaffeineSpec) o;
-    return Objects.equals(refreshAfterWrite, spec.refreshAfterWrite)
-        && Objects.equals(expireAfterAccess, spec.expireAfterAccess)
-        && Objects.equals(expireAfterWrite, spec.expireAfterWrite)
-        && Objects.equals(initialCapacity, spec.initialCapacity)
-        && Objects.equals(maximumWeight, spec.maximumWeight)
-        && Objects.equals(maximumSize, spec.maximumSize)
-        && (valueStrength == spec.valueStrength)
-        && (keyStrength == spec.keyStrength)
-        && (recordStats == spec.recordStats);
-  }
 
-  @Override
-  public int hashCode() {
-    return Objects.hash(initialCapacity, maximumSize, maximumWeight, keyStrength, valueStrength,
-        recordStats, expireAfterWrite, expireAfterAccess, refreshAfterWrite);
-  }
+    void maximumWeight(String key, @Nullable String value) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  /**
-   * Returns a string representation that can be used to parse an equivalent {@code CaffeineSpec}.
-   * The order and form of this representation is not guaranteed, except that parsing its output
-   * will produce a {@code CaffeineSpec} equal to this instance.
-   *
-   * @return a string representation of this specification that can be parsed into a
-   *         {@code CaffeineSpec}
-   */
-  public String toParsableString() {
-    return specification;
-  }
+    void weakKeys(@Nullable String value) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  /**
-   * Returns a string representation for this {@code CaffeineSpec} instance. The form of this
-   * representation is not guaranteed.
-   */
-  @Override
-  public String toString() {
-    return getClass().getSimpleName() + '{' + toParsableString() + '}';
-  }
+    void valueStrength(String key, @Nullable String value, Strength strength) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    void expireAfterAccess(String key, @Nullable String value) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    void expireAfterWrite(String key, @Nullable String value) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    void refreshAfterWrite(String key, @Nullable String value) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    void recordStats(@Nullable String value) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    static int parseInt(String key, @Nullable String value) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    static long parseLong(String key, @Nullable String value) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    static String normalizeNumericLiteral(String value) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    static Duration parseDuration(String key, @Nullable String value) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    static Duration parseIsoDuration(String key, String value) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    static Duration parseSimpleDuration(String key, String value) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @SuppressWarnings({ "ConstantValue", "StatementSwitchToExpressionSwitch" })
+    static TimeUnit parseTimeUnit(String key, String value) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public boolean equals(@Nullable Object o) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public int hashCode() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public String toParsableString() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public String toString() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

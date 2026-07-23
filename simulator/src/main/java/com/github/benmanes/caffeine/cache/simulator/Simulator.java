@@ -18,7 +18,6 @@ package com.github.benmanes.caffeine.cache.simulator;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Locale.US;
 import static java.util.stream.Gatherers.windowFixed;
-
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -26,7 +25,6 @@ import java.util.concurrent.CompletionException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
-
 import com.github.benmanes.caffeine.cache.simulator.parser.TraceFormat;
 import com.github.benmanes.caffeine.cache.simulator.parser.TraceReader;
 import com.github.benmanes.caffeine.cache.simulator.policy.AccessEvent;
@@ -59,97 +57,85 @@ import com.typesafe.config.ConfigFactory;
  * @author ben.manes@gmail.com (Ben Manes)
  */
 public final class Simulator {
-  private final BasicSettings settings;
 
-  public Simulator(Config config) {
-    settings = new BasicSettings(config.getConfig("caffeine.simulator"));
-  }
+    private final BasicSettings settings;
 
-  /** Broadcast the trace events to all of the policy actors. */
-  public void run() {
-    var trace = getTraceReader(settings);
-    var policies = getPolicyActors(trace.characteristics());
-    if (policies.isEmpty()) {
-      System.err.println("No active policies in the current configuration");
-      return;
+    public Simulator(Config config) {
+        settings = new BasicSettings(config.getConfig("caffeine.simulator"));
     }
 
-    try {
-      broadcast(trace, policies);
-      report(trace, policies);
-    } catch (RuntimeException e) {
-      throwError(e, policies);
+    public void run() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  private void broadcast(TraceReader trace, List<PolicyActor> policies) {
-    long skip = settings.trace().skip();
-    long limit = settings.trace().limit();
-    int batchSize = settings.actor().batchSize();
-    try (Stream<AccessEvent> events = trace.events().skip(skip).limit(limit)) {
-      events.gather(windowFixed(batchSize)).forEach(batch -> {
+    private void broadcast(TraceReader trace, List<PolicyActor> policies) {
+        long skip = settings.trace().skip();
+        long limit = settings.trace().limit();
+        int batchSize = settings.actor().batchSize();
+        try (Stream<AccessEvent> events = trace.events().skip(skip).limit(limit)) {
+            events.gather(windowFixed(batchSize)).forEach(batch -> {
+                for (var policy : policies) {
+                    policy.send(batch);
+                }
+            });
+            var futures = policies.stream().map(policy -> {
+                policy.finish();
+                return policy.completed();
+            }).toArray(CompletableFuture<?>[]::new);
+            CompletableFuture.allOf(futures).join();
+        }
+    }
+
+    private void report(TraceReader trace, List<PolicyActor> policies) {
+        var reporter = settings.report().format().create(settings.config(), trace.characteristics());
+        var results = policies.stream().map(PolicyActor::stats).collect(toImmutableList());
+        reporter.print(results);
+    }
+
+    /**
+     * Returns a trace reader for the access events.
+     */
+    private static TraceReader getTraceReader(BasicSettings settings) {
+        if (settings.trace().isSynthetic()) {
+            return Synthetic.generate(settings.trace());
+        }
+        List<String> filePaths = settings.trace().traceFiles().paths();
+        TraceFormat format = settings.trace().traceFiles().format();
+        return format.readFiles(filePaths);
+    }
+
+    /**
+     * Returns the policy actors that asynchronously apply the trace events.
+     */
+    private ImmutableList<PolicyActor> getPolicyActors(Set<Characteristic> characteristics) {
+        var registry = new Registry(settings, characteristics);
+        return registry.policies().stream().map(policy -> new PolicyActor(Thread.currentThread(), policy, settings)).collect(toImmutableList());
+    }
+
+    /**
+     * Throws the underlying cause for the simulation failure.
+     */
+    private static void throwError(RuntimeException error, Iterable<PolicyActor> policies) {
+        if (!Thread.currentThread().isInterrupted()) {
+            throw error;
+        }
         for (var policy : policies) {
-          policy.send(batch);
+            if (policy.completed().isCompletedExceptionally()) {
+                try {
+                    policy.completed().join();
+                } catch (CompletionException e) {
+                    if (e.getCause() != null) {
+                        Throwables.throwIfUnchecked(e.getCause());
+                    }
+                    e.addSuppressed(error);
+                    throw e;
+                }
+            }
         }
-      });
-      var futures = policies.stream().map(policy -> {
-        policy.finish();
-        return policy.completed();
-      }).toArray(CompletableFuture<?>[]::new);
-      CompletableFuture.allOf(futures).join();
+        throw error;
     }
-  }
 
-  private void report(TraceReader trace, List<PolicyActor> policies) {
-    var reporter = settings.report().format().create(settings.config(), trace.characteristics());
-    var results = policies.stream().map(PolicyActor::stats).collect(toImmutableList());
-    reporter.print(results);
-  }
-
-  /** Returns a trace reader for the access events. */
-  private static TraceReader getTraceReader(BasicSettings settings) {
-    if (settings.trace().isSynthetic()) {
-      return Synthetic.generate(settings.trace());
+    static void main() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    List<String> filePaths = settings.trace().traceFiles().paths();
-    TraceFormat format = settings.trace().traceFiles().format();
-    return format.readFiles(filePaths);
-  }
-
-  /** Returns the policy actors that asynchronously apply the trace events. */
-  private ImmutableList<PolicyActor> getPolicyActors(Set<Characteristic> characteristics) {
-    var registry = new Registry(settings, characteristics);
-    return registry.policies().stream()
-        .map(policy -> new PolicyActor(Thread.currentThread(), policy, settings))
-        .collect(toImmutableList());
-  }
-
-  /** Throws the underlying cause for the simulation failure. */
-  private static void throwError(RuntimeException error, Iterable<PolicyActor> policies) {
-    if (!Thread.currentThread().isInterrupted()) {
-      throw error;
-    }
-    for (var policy : policies) {
-      if (policy.completed().isCompletedExceptionally()) {
-        try {
-          policy.completed().join();
-        } catch (CompletionException e) {
-          if (e.getCause() != null) {
-            Throwables.throwIfUnchecked(e.getCause());
-          }
-          e.addSuppressed(error);
-          throw e;
-        }
-      }
-    }
-    throw error;
-  }
-
-  static void main() {
-    Logger.getLogger("").setLevel(Level.WARNING);
-    var simulator = new Simulator(ConfigFactory.load());
-    var stopwatch = Stopwatch.createStarted();
-    simulator.run();
-    System.out.printf(US, "Executed in %s%n", stopwatch);
-  }
 }

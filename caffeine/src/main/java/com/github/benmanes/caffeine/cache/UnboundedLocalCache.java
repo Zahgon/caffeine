@@ -19,7 +19,6 @@ import static com.github.benmanes.caffeine.cache.Caffeine.calculateHashMapCapaci
 import static com.github.benmanes.caffeine.cache.LocalLoadingCache.newBulkMappingFunction;
 import static com.github.benmanes.caffeine.cache.LocalLoadingCache.newMappingFunction;
 import static java.util.Objects.requireNonNull;
-
 import java.io.InvalidObjectException;
 import java.io.ObjectInputStream;
 import java.io.Serializable;
@@ -49,9 +48,7 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
-
 import org.jspecify.annotations.Nullable;
-
 import com.github.benmanes.caffeine.cache.stats.StatsCounter;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.Var;
@@ -64,1315 +61,975 @@ import com.google.errorprone.annotations.Var;
  */
 @SuppressWarnings("serial")
 final class UnboundedLocalCache<K, V> implements LocalCache<K, V> {
-  static final Logger logger = System.getLogger(UnboundedLocalCache.class.getName());
-  static final VarHandle REFRESHES =
-      findVarHandle(UnboundedLocalCache.class, "refreshes", ConcurrentMap.class);
 
-  final @Nullable RemovalListener<K, V> removalListener;
-  final ConcurrentHashMap<K, V> data;
-  final StatsCounter statsCounter;
-  final boolean isRecordingStats;
-  final Executor executor;
-  final boolean isAsync;
+    static final Logger logger = System.getLogger(UnboundedLocalCache.class.getName());
 
-  @Nullable Set<K> keySet;
-  @Nullable Collection<V> values;
-  @Nullable Set<Entry<K, V>> entrySet;
-  volatile @Nullable ConcurrentMap<Object, CompletableFuture<?>> refreshes;
+    static final VarHandle REFRESHES = findVarHandle(UnboundedLocalCache.class, "refreshes", ConcurrentMap.class);
 
-  UnboundedLocalCache(Caffeine<? super K, ? super V> builder, boolean isAsync) {
-    this.data = new ConcurrentHashMap<>(builder.getInitialCapacity());
-    this.statsCounter = builder.getStatsCounterSupplier().get();
-    this.removalListener = builder.getRemovalListener(isAsync);
-    this.isRecordingStats = builder.isRecordingStats();
-    this.executor = builder.getExecutor();
-    this.isAsync = isAsync;
-  }
+    @Nullable
+    final RemovalListener<K, V> removalListener;
 
-  static VarHandle findVarHandle(Class<?> recv, String name, Class<?> type) {
-    try {
-      return MethodHandles.lookup().findVarHandle(recv, name, type);
-    } catch (ReflectiveOperationException e) {
-      throw new ExceptionInInitializerError(e);
-    }
-  }
+    final ConcurrentHashMap<K, V> data;
 
-  @Override
-  public boolean isAsync() {
-    return isAsync;
-  }
+    final StatsCounter statsCounter;
 
-  @Override
-  public @Nullable Expiry<K, V> expiry() {
-    return null;
-  }
+    final boolean isRecordingStats;
 
-  @Override
-  public boolean collectKeys() {
-    return false;
-  }
+    final Executor executor;
 
-  @Override
-  @CanIgnoreReturnValue
-  public Object referenceKey(K key) {
-    return key;
-  }
+    final boolean isAsync;
 
-  @Override
-  public boolean isPendingEviction(K key) {
-    return false;
-  }
+    @Nullable
+    Set<K> keySet;
 
-  /* --------------- Cache --------------- */
+    @Nullable
+    Collection<V> values;
 
-  @Override
-  @SuppressWarnings("SuspiciousMethodCalls")
-  public @Nullable V getIfPresent(Object key, boolean recordStats) {
-    V value = data.get(key);
+    @Nullable
+    Set<Entry<K, V>> entrySet;
 
-    if (recordStats) {
-      if (value == null) {
-        statsCounter.recordMisses(1);
-      } else {
-        statsCounter.recordHits(1);
-      }
-    }
-    return value;
-  }
+    @Nullable
+    volatile ConcurrentMap<Object, CompletableFuture<?>> refreshes;
 
-  @Override
-  @SuppressWarnings("SuspiciousMethodCalls")
-  public @Nullable V getIfPresentQuietly(Object key) {
-    return data.get(key);
-  }
-
-  @Override
-  public long estimatedSize() {
-    return data.mappingCount();
-  }
-
-  @Override
-  public Map<K, V> getAllPresent(Iterable<? extends K> keys) {
-    var result = new LinkedHashMap<K, @Nullable V>(calculateHashMapCapacity(keys));
-    for (K key : keys) {
-      result.put(key, null);
+    UnboundedLocalCache(Caffeine<? super K, ? super V> builder, boolean isAsync) {
+        this.data = new ConcurrentHashMap<>(builder.getInitialCapacity());
+        this.statsCounter = builder.getStatsCounterSupplier().get();
+        this.removalListener = builder.getRemovalListener(isAsync);
+        this.isRecordingStats = builder.isRecordingStats();
+        this.executor = builder.getExecutor();
+        this.isAsync = isAsync;
     }
 
-    int uniqueKeys = result.size();
-    for (var iter = result.entrySet().iterator(); iter.hasNext();) {
-      Map.Entry<K, @Nullable V> entry = iter.next();
-      V value = data.get(entry.getKey());
-      if (value == null) {
-        iter.remove();
-      } else {
-        entry.setValue(value);
-      }
-    }
-    statsCounter.recordHits(result.size());
-    statsCounter.recordMisses(uniqueKeys - result.size());
-
-    @SuppressWarnings("NullableProblems")
-    Map<K, V> unmodifiable = Collections.unmodifiableMap(result);
-    return unmodifiable;
-  }
-
-  @Override
-  public void cleanUp() {}
-
-  @Override
-  public StatsCounter statsCounter() {
-    return statsCounter;
-  }
-
-  @Override
-  public void notifyRemoval(@Nullable K key, @Nullable V value, RemovalCause cause) {
-    if (removalListener == null) {
-      return;
-    }
-    Runnable task = () -> {
-      try {
-        removalListener.onRemoval(key, value, cause);
-      } catch (Throwable t) {
-        logger.log(Level.WARNING, "Exception thrown by removal listener", t);
-      }
-    };
-    try {
-      executor.execute(task);
-    } catch (Throwable t) {
-      logger.log(Level.ERROR, "Exception thrown when submitting removal listener", t);
-      task.run();
-    }
-  }
-
-  @Override
-  public boolean isRecordingStats() {
-    return isRecordingStats;
-  }
-
-  @Override
-  public Executor executor() {
-    return executor;
-  }
-
-  @Override
-  public ConcurrentMap<Object, CompletableFuture<?>> refreshes() {
-    @Var var pending = refreshes;
-    if (pending == null) {
-      pending = new ConcurrentHashMap<>();
-      if (!REFRESHES.compareAndSet(this, null, pending)) {
-        pending = requireNonNull(refreshes);
-      }
-    }
-    return pending;
-  }
-
-  /** Invalidate the in-flight refresh. */
-  void discardRefresh(Object keyReference) {
-    var pending = refreshes;
-    if (pending != null) {
-      pending.remove(keyReference);
-    }
-  }
-
-  @Override
-  public Ticker statsTicker() {
-    return isRecordingStats ? Ticker.systemTicker() : Ticker.disabledTicker();
-  }
-
-  /* --------------- JDK8+ Map extensions --------------- */
-
-  @Override
-  public void forEach(BiConsumer<? super K, ? super V> action) {
-    data.forEach(action);
-  }
-
-  @Override
-  @SuppressWarnings("ResultOfMethodCallIgnored")
-  public void replaceAll(BiFunction<? super K, ? super V, ? extends V> function) {
-    requireNonNull(function);
-
-    BiFunction<K, @Nullable V, @Nullable V> remappingFunction = (key, oldValue) ->
-        (oldValue == null) ? null : requireNonNull(function.apply(key, oldValue));
-    for (K key : data.keySet()) {
-      remap(key, remappingFunction);
-    }
-  }
-
-  @Override
-  public @Nullable V computeIfAbsent(K key,
-      Function<? super K, ? extends @Nullable V> mappingFunction,
-      boolean recordStats, boolean recordLoad) {
-    requireNonNull(mappingFunction);
-
-    // An optimistic fast path to avoid unnecessary locking
-    @Var V value = data.get(key);
-    if (value != null) {
-      if (recordStats) {
-        statsCounter.recordHits(1);
-      }
-      return value;
-    }
-
-    boolean[] missed = new boolean[1];
-    value = data.computeIfAbsent(key, k -> {
-      missed[0] = true;
-      V computed = recordStats
-          ? statsAware(mappingFunction, recordLoad).apply(k)
-          : mappingFunction.apply(k);
-      discardRefresh(k);
-      return computed;
-    });
-    if (!missed[0] && recordStats) {
-      statsCounter.recordHits(1);
-    }
-    return value;
-  }
-
-  @Override
-  public @Nullable V computeIfPresent(K key,
-      BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
-    requireNonNull(remappingFunction);
-
-    // An optimistic fast path to avoid unnecessary locking
-    if (!data.containsKey(key)) {
-      return null;
-    }
-
-    // ensures that the removal notification is processed after the removal has completed
-    @SuppressWarnings({"rawtypes", "unchecked", "Varifier"})
-    @Nullable V[] oldValue = (V[]) new Object[1];
-    boolean[] replaced = new boolean[1];
-    V nv = data.computeIfPresent(key, (K k, V value) -> {
-      BiFunction<? super K, ? super V, ? extends @Nullable V> function = statsAware(
-          remappingFunction, /* recordLoad= */ true, /* recordLoadFailure= */ true);
-      V newValue = function.apply(k, value);
-
-      replaced[0] = (newValue != null);
-      if (newValue != value) {
-        oldValue[0] = value;
-      }
-
-      discardRefresh(k);
-      return newValue;
-    });
-    if (replaced[0]) {
-      notifyOnReplace(key, oldValue[0], nv);
-    } else if (oldValue[0] != null) {
-      notifyRemoval(key, oldValue[0], RemovalCause.EXPLICIT);
-    }
-    return nv;
-  }
-
-  @Override
-  public @Nullable V compute(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction,
-      @Nullable Expiry<? super K, ? super V> expiry, boolean recordLoad,
-      boolean recordLoadFailure, boolean @Nullable[] preserveTimestamps) {
-    requireNonNull(remappingFunction);
-    return remap(key, statsAware(remappingFunction, recordLoad, recordLoadFailure));
-  }
-
-  @Override
-  public @Nullable V merge(K key, V value,
-      BiFunction<? super V, ? super V, ? extends V> remappingFunction) {
-    requireNonNull(remappingFunction);
-    requireNonNull(value);
-
-    return remap(key, (K k, @Nullable V oldValue) ->
-      (oldValue == null) ? value : statsAware(remappingFunction).apply(oldValue, value));
-  }
-
-  /**
-   * A {@link Map#compute(Object, BiFunction)} that does not directly record any cache statistics.
-   *
-   * @param key key with which the specified value is to be associated
-   * @param remappingFunction the function to compute a value
-   * @return the new value associated with the specified key, or null if none
-   */
-  @Nullable V remap(K key,
-      BiFunction<? super K, ? super @Nullable V, ? extends @Nullable V> remappingFunction) {
-    // ensures that the removal notification is processed after the removal has completed
-    @SuppressWarnings({"rawtypes", "unchecked", "Varifier"})
-    @Nullable V[] oldValue = (@Nullable V[]) new Object[1];
-    boolean[] replaced = new boolean[1];
-    V nv = data.compute(key, (K k, V value) -> {
-      V newValue = remappingFunction.apply(k, value);
-      if ((value == null) && (newValue == null)) {
-        return null;
-      }
-
-      replaced[0] = (newValue != null);
-      if (newValue != value) {
-        oldValue[0] = value;
-      }
-
-      discardRefresh(k);
-      return newValue;
-    });
-    if (replaced[0]) {
-      notifyOnReplace(key, oldValue[0], nv);
-    } else if (oldValue[0] != null) {
-      notifyRemoval(key, oldValue[0], RemovalCause.EXPLICIT);
-    }
-    return nv;
-  }
-
-  /* --------------- Concurrent Map --------------- */
-
-  @Override
-  public boolean isEmpty() {
-    return data.isEmpty();
-  }
-
-  @Override
-  public int size() {
-    return data.size();
-  }
-
-  @Override
-  @SuppressWarnings("ResultOfMethodCallIgnored")
-  public void clear() {
-    var keys = (removalListener == null) ? data.keySet() : List.copyOf(data.keySet());
-    for (K key : keys) {
-      remove(key);
-    }
-  }
-
-  @Override
-  public boolean containsKey(Object key) {
-    return data.containsKey(key);
-  }
-
-  @Override
-  public boolean containsValue(Object value) {
-    return data.containsValue(value);
-  }
-
-  @Override
-  public @Nullable V get(Object key) {
-    return getIfPresent(key, /* recordStats= */ false);
-  }
-
-  @Override
-  public @Nullable V put(K key, V value) {
-    requireNonNull(value);
-
-    @SuppressWarnings({"rawtypes", "unchecked", "Varifier"})
-    @Nullable V[] oldValue = (@Nullable V[]) new Object[1];
-    data.compute(key, (K k, V v) -> {
-      discardRefresh(k);
-      oldValue[0] = v;
-      return value;
-    });
-    if (oldValue[0] != null) {
-      notifyOnReplace(key, oldValue[0], value);
-    }
-    return oldValue[0];
-  }
-
-  @Override
-  public @Nullable V putIfAbsent(K key, V value) {
-    requireNonNull(value);
-
-    // An optimistic fast path to avoid unnecessary locking
-    var v = data.get(key);
-    if (v != null) {
-      return v;
-    }
-
-    var added = new boolean[1];
-    var val = data.computeIfAbsent(key, k -> {
-      discardRefresh(k);
-      added[0] = true;
-      return value;
-    });
-    return added[0] ? null : val;
-  }
-
-  @Override
-  @SuppressWarnings("ResultOfMethodCallIgnored")
-  public void putAll(Map<? extends K, ? extends V> map) {
-    map.forEach(this::put);
-  }
-
-  @Override
-  public @Nullable V remove(Object key) {
-    @SuppressWarnings("unchecked")
-    var castKey = (K) key;
-    @SuppressWarnings({"rawtypes", "unchecked", "Varifier"})
-    @Nullable V[] oldValue = (V[]) new Object[1];
-    data.computeIfPresent(castKey, (k, v) -> {
-      discardRefresh(k);
-      oldValue[0] = v;
-      return null;
-    });
-
-    if (oldValue[0] != null) {
-      notifyRemoval(castKey, oldValue[0], RemovalCause.EXPLICIT);
-    }
-
-    return oldValue[0];
-  }
-
-  @Override
-  public boolean remove(Object key, @Nullable Object value) {
-    if (value == null) {
-      requireNonNull(key);
-      return false;
-    }
-
-    @SuppressWarnings("unchecked")
-    var castKey = (K) key;
-    @SuppressWarnings({"rawtypes", "unchecked", "Varifier"})
-    @Nullable V[] oldValue = (V[]) new Object[1];
-
-    data.computeIfPresent(castKey, (k, v) -> {
-      if (Objects.equals(v, value)) {
-        discardRefresh(k);
-        oldValue[0] = v;
-        return null;
-      }
-      return v;
-    });
-
-    if (oldValue[0] != null) {
-      notifyRemoval(castKey, oldValue[0], RemovalCause.EXPLICIT);
-      return true;
-    }
-    return false;
-  }
-
-  @Override
-  public @Nullable V replace(K key, V value) {
-    requireNonNull(value);
-
-    @SuppressWarnings({"rawtypes", "unchecked", "Varifier"})
-    @Nullable V[] oldValue = (@Nullable V[]) new Object[1];
-    data.computeIfPresent(key, (k, v) -> {
-      discardRefresh(k);
-      oldValue[0] = v;
-      return value;
-    });
-
-    if ((oldValue[0] != null) && (oldValue[0] != value)) {
-      notifyOnReplace(key, oldValue[0], value);
-    }
-    return oldValue[0];
-  }
-
-  @Override
-  public boolean replace(K key, V oldValue, V newValue) {
-    return replace(key, oldValue, newValue, /* shouldDiscardRefresh= */ true);
-  }
-
-  @Override
-  public boolean replace(K key, V oldValue, V newValue, boolean shouldDiscardRefresh) {
-    requireNonNull(oldValue);
-    requireNonNull(newValue);
-
-    @SuppressWarnings({"rawtypes", "unchecked", "Varifier"})
-    @Nullable V[] prev = (V[]) new Object[1];
-    data.computeIfPresent(key, (k, v) -> {
-      if (Objects.equals(v, oldValue)) {
-        if (shouldDiscardRefresh) {
-          discardRefresh(k);
-        }
-        prev[0] = v;
-        return newValue;
-      }
-      return v;
-    });
-
-    boolean replaced = (prev[0] != null);
-    if (replaced && (prev[0] != newValue)) {
-      notifyOnReplace(key, prev[0], newValue);
-    }
-    return replaced;
-  }
-
-  @Override
-  @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
-  public boolean equals(@Nullable Object o) {
-    return (o == this) || data.equals(o);
-  }
-
-  @Override
-  public int hashCode() {
-    return data.hashCode();
-  }
-
-  @Override
-  public String toString() {
-    var result = new StringBuilder(50).append('{');
-    data.forEach((key, value) -> {
-      if (result.length() != 1) {
-        result.append(", ");
-      }
-      result.append((key == this) ? "(this Map)" : key)
-          .append('=')
-          .append((value == this) ? "(this Map)" : value);
-    });
-    return result.append('}').toString();
-  }
-
-  @Override
-  public Set<K> keySet() {
-    Set<K> ks = keySet;
-    return (ks == null) ? (keySet = new KeySetView<>(this)) : ks;
-  }
-
-  @Override
-  public Collection<V> values() {
-    Collection<V> vs = values;
-    return (vs == null) ? (values = new ValuesView<>(this)) : vs;
-  }
-
-  @Override
-  public Set<Entry<K, V>> entrySet() {
-    Set<Entry<K, V>> es = entrySet;
-    return (es == null) ? (entrySet = new EntrySetView<>(this)) : es;
-  }
-
-  /** An adapter to safely externalize the keys. */
-  static final class KeySetView<K> extends AbstractSet<K> {
-    final UnboundedLocalCache<K, ?> cache;
-
-    KeySetView(UnboundedLocalCache<K, ?> cache) {
-      this.cache = requireNonNull(cache);
+    static VarHandle findVarHandle(Class<?> recv, String name, Class<?> type) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public boolean isEmpty() {
-      return cache.isEmpty();
+    public boolean isAsync() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public int size() {
-      return cache.size();
+    @Nullable
+    public Expiry<K, V> expiry() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public void clear() {
-      cache.clear();
+    public boolean collectKeys() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    @CanIgnoreReturnValue
+    public Object referenceKey(K key) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public boolean isPendingEviction(K key) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    /* --------------- Cache --------------- */
+    @Override
+    @SuppressWarnings("SuspiciousMethodCalls")
+    @Nullable
+    public V getIfPresent(Object key, boolean recordStats) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
     @SuppressWarnings("SuspiciousMethodCalls")
-    public boolean contains(Object o) {
-      return cache.containsKey(o);
+    @Nullable
+    public V getIfPresentQuietly(Object key) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public boolean removeAll(Collection<?> collection) {
-      requireNonNull(collection);
-      @Var boolean modified = false;
-      if ((collection instanceof Set<?>) && (collection.size() > size())) {
-        for (K key : this) {
-          if (collection.contains(key)) {
-            modified |= remove(key);
-          }
-        }
-      } else {
-        for (var o : collection) {
-          modified |= (o != null) && remove(o);
-        }
-      }
-      return modified;
+    public long estimatedSize() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public boolean remove(Object o) {
-      return (cache.remove(o) != null);
+    public Map<K, V> getAllPresent(Iterable<? extends K> keys) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public boolean removeIf(Predicate<? super K> filter) {
-      requireNonNull(filter);
-      @Var boolean modified = false;
-      for (K key : this) {
-        if (filter.test(key) && remove(key)) {
-          modified = true;
-        }
-      }
-      return modified;
+    public void cleanUp() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public boolean retainAll(Collection<?> collection) {
-      requireNonNull(collection);
-      @Var boolean modified = false;
-      for (K key : this) {
-        if (!collection.contains(key) && remove(key)) {
-          modified = true;
-        }
-      }
-      return modified;
+    public StatsCounter statsCounter() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public void forEach(Consumer<? super K> action) {
-      cache.data.keySet().forEach(action);
+    public void notifyRemoval(@Nullable K key, @Nullable V value, RemovalCause cause) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public Iterator<K> iterator() {
-      return new KeyIterator<>(cache);
+    public boolean isRecordingStats() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public Spliterator<K> spliterator() {
-      return new KeySpliterator<>(cache);
+    public Executor executor() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public Object[] toArray() {
-      return cache.data.keySet().toArray();
+    public ConcurrentMap<Object, CompletableFuture<?>> refreshes() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    void discardRefresh(Object keyReference) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public <T> T[] toArray(T[] array) {
-      return cache.data.keySet().toArray(array);
-    }
-  }
-
-  /** An adapter to safely externalize the key iterator. */
-  static final class KeyIterator<K> implements Iterator<K> {
-    final UnboundedLocalCache<K, ?> cache;
-    final Iterator<K> iterator;
-    @Nullable K current;
-
-    KeyIterator(UnboundedLocalCache<K, ?> cache) {
-      this.iterator = cache.data.keySet().iterator();
-      this.cache = cache;
+    public Ticker statsTicker() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
+    /* --------------- JDK8+ Map extensions --------------- */
     @Override
-    public boolean hasNext() {
-      return iterator.hasNext();
-    }
-
-    @Override
-    public K next() {
-      current = iterator.next();
-      return current;
+    public void forEach(BiConsumer<? super K, ? super V> action) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
     @SuppressWarnings("ResultOfMethodCallIgnored")
-    public void remove() {
-      if (current == null) {
-        throw new IllegalStateException();
-      }
-      cache.remove(current);
-      current = null;
-    }
-  }
-
-  /** An adapter to safely externalize the key spliterator. */
-  static final class KeySpliterator<K, V> implements Spliterator<K> {
-    final Spliterator<K> spliterator;
-
-    KeySpliterator(UnboundedLocalCache<K, V> cache) {
-      this(cache.data.keySet().spliterator());
-    }
-
-    KeySpliterator(Spliterator<K> spliterator) {
-      this.spliterator = requireNonNull(spliterator);
+    public void replaceAll(BiFunction<? super K, ? super V, ? extends V> function) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public void forEachRemaining(Consumer<? super K> action) {
-      requireNonNull(action);
-      spliterator.forEachRemaining(action);
+    @Nullable
+    public V computeIfAbsent(K key, Function<? super K, ? extends @Nullable V> mappingFunction, boolean recordStats, boolean recordLoad) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public boolean tryAdvance(Consumer<? super K> action) {
-      requireNonNull(action);
-      return spliterator.tryAdvance(action);
+    @Nullable
+    public V computeIfPresent(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public @Nullable KeySpliterator<K, V> trySplit() {
-      Spliterator<K> split = spliterator.trySplit();
-      return (split == null) ? null : new KeySpliterator<>(split);
+    @Nullable
+    public V compute(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction, @Nullable Expiry<? super K, ? super V> expiry, boolean recordLoad, boolean recordLoadFailure, boolean @Nullable [] preserveTimestamps) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public long estimateSize() {
-      return spliterator.estimateSize();
+    @Nullable
+    public V merge(K key, V value, BiFunction<? super V, ? super V, ? extends V> remappingFunction) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
-    @Override
-    public int characteristics() {
-      return DISTINCT | CONCURRENT | NONNULL;
-    }
-  }
-
-  /** An adapter to safely externalize the values. */
-  static final class ValuesView<K, V> extends AbstractCollection<V> {
-    final UnboundedLocalCache<K, V> cache;
-
-    ValuesView(UnboundedLocalCache<K, V> cache) {
-      this.cache = requireNonNull(cache);
+    @Nullable
+    V remap(K key, BiFunction<? super K, ? super @Nullable V, ? extends @Nullable V> remappingFunction) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
+    /* --------------- Concurrent Map --------------- */
     @Override
     public boolean isEmpty() {
-      return cache.isEmpty();
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
     public int size() {
-      return cache.size();
-    }
-
-    @Override
-    public void clear() {
-      cache.clear();
-    }
-
-    @Override
-    @SuppressWarnings("SuspiciousMethodCalls")
-    public boolean contains(Object o) {
-      return cache.containsValue(o);
-    }
-
-    @Override
-    public boolean removeAll(Collection<?> collection) {
-      requireNonNull(collection);
-      @Var boolean modified = false;
-      for (var entry : cache.data.entrySet()) {
-        if (collection.contains(entry.getValue())
-            && cache.remove(entry.getKey(), entry.getValue())) {
-          modified = true;
-        }
-      }
-      return modified;
-    }
-
-    @Override
-    public boolean remove(@Nullable Object o) {
-      if (o == null) {
-        return false;
-      }
-      for (var entry : cache.data.entrySet()) {
-        if (o.equals(entry.getValue()) && cache.remove(entry.getKey(), entry.getValue())) {
-          return true;
-        }
-      }
-      return false;
-    }
-
-    @Override
-    public boolean removeIf(Predicate<? super V> filter) {
-      requireNonNull(filter);
-      @Var boolean removed = false;
-      for (var entry : cache.data.entrySet()) {
-        if (filter.test(entry.getValue())) {
-          removed |= cache.remove(entry.getKey(), entry.getValue());
-        }
-      }
-      return removed;
-    }
-
-    @Override
-    public boolean retainAll(Collection<?> collection) {
-      requireNonNull(collection);
-      @Var boolean modified = false;
-      for (var entry : cache.data.entrySet()) {
-        if (!collection.contains(entry.getValue())
-            && cache.remove(entry.getKey(), entry.getValue())) {
-          modified = true;
-        }
-      }
-      return modified;
-    }
-
-    @Override
-    public void forEach(Consumer<? super V> action) {
-      cache.data.values().forEach(action);
-    }
-
-    @Override
-    public Iterator<V> iterator() {
-      return new ValueIterator<>(cache);
-    }
-
-    @Override
-    public Spliterator<V> spliterator() {
-      return new ValueSpliterator<>(cache);
-    }
-
-    @Override
-    public Object[] toArray() {
-      return cache.data.values().toArray();
-    }
-
-    @Override
-    public <T> T[] toArray(T[] array) {
-      return cache.data.values().toArray(array);
-    }
-  }
-
-  /** An adapter to safely externalize the value iterator. */
-  static final class ValueIterator<K, V> implements Iterator<V> {
-    final UnboundedLocalCache<K, V> cache;
-    final Iterator<Entry<K, V>> iterator;
-    @Nullable Entry<K, V> entry;
-
-    ValueIterator(UnboundedLocalCache<K, V> cache) {
-      this.iterator = cache.data.entrySet().iterator();
-      this.cache = cache;
-    }
-
-    @Override
-    public boolean hasNext() {
-      return iterator.hasNext();
-    }
-
-    @Override
-    public V next() {
-      entry = iterator.next();
-      return entry.getValue();
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
     @SuppressWarnings("ResultOfMethodCallIgnored")
-    public void remove() {
-      if (entry == null) {
-        throw new IllegalStateException();
-      }
-      cache.remove(entry.getKey());
-      entry = null;
-    }
-  }
-
-  /** An adapter to safely externalize the value spliterator. */
-  static final class ValueSpliterator<K, V> implements Spliterator<V> {
-    final Spliterator<V> spliterator;
-
-    ValueSpliterator(UnboundedLocalCache<K, V> cache) {
-      this(cache.data.values().spliterator());
-    }
-
-    ValueSpliterator(Spliterator<V> spliterator) {
-      this.spliterator = requireNonNull(spliterator);
-    }
-
-    @Override
-    public void forEachRemaining(Consumer<? super V> action) {
-      requireNonNull(action);
-      spliterator.forEachRemaining(action);
-    }
-
-    @Override
-    public boolean tryAdvance(Consumer<? super V> action) {
-      requireNonNull(action);
-      return spliterator.tryAdvance(action);
-    }
-
-    @Override
-    public @Nullable ValueSpliterator<K, V> trySplit() {
-      Spliterator<V> split = spliterator.trySplit();
-      return (split == null) ? null : new ValueSpliterator<>(split);
-    }
-
-    @Override
-    public long estimateSize() {
-      return spliterator.estimateSize();
-    }
-
-    @Override
-    public int characteristics() {
-      return CONCURRENT | NONNULL;
-    }
-  }
-
-  /** An adapter to safely externalize the entries. */
-  static final class EntrySetView<K, V> extends AbstractSet<Entry<K, V>> {
-    final UnboundedLocalCache<K, V> cache;
-
-    EntrySetView(UnboundedLocalCache<K, V> cache) {
-      this.cache = requireNonNull(cache);
-    }
-
-    @Override
-    public boolean isEmpty() {
-      return cache.isEmpty();
-    }
-
-    @Override
-    public int size() {
-      return cache.size();
-    }
-
-    @Override
     public void clear() {
-      cache.clear();
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    @SuppressWarnings("SuspiciousMethodCalls")
-    public boolean contains(Object o) {
-      if (!(o instanceof Entry<?, ?>)) {
-        return false;
-      }
-      var entry = (Entry<?, ?>) o;
-      var key = entry.getKey();
-      var value = entry.getValue();
-      if ((key == null) || (value == null)) {
-        return false;
-      }
-      V cachedValue = cache.get(key);
-      return (cachedValue != null) && cachedValue.equals(value);
+    public boolean containsKey(Object key) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public boolean removeAll(Collection<?> collection) {
-      requireNonNull(collection);
-      @Var boolean modified = false;
-      if ((collection instanceof Set<?>) && (collection.size() > size())) {
-        for (var entry : this) {
-          if (collection.contains(entry)) {
-            modified |= remove(entry);
-          }
-        }
-      } else {
-        for (var o : collection) {
-          modified |= remove(o);
-        }
-      }
-      return modified;
+    public boolean containsValue(Object value) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    @SuppressWarnings("SuspiciousMethodCalls")
-    public boolean remove(Object o) {
-      if (!(o instanceof Entry<?, ?>)) {
-        return false;
-      }
-      var entry = (Entry<?, ?>) o;
-      var key = entry.getKey();
-      return (key != null) && cache.remove(key, entry.getValue());
+    @Nullable
+    public V get(Object key) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public boolean removeIf(Predicate<? super Entry<K, V>> filter) {
-      requireNonNull(filter);
-      @Var boolean removed = false;
-      for (var entry : cache.data.entrySet()) {
-        if (filter.test(entry)) {
-          removed |= cache.remove(entry.getKey(), entry.getValue());
-        }
-      }
-      return removed;
+    @Nullable
+    public V put(K key, V value) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public boolean retainAll(Collection<?> collection) {
-      requireNonNull(collection);
-      @Var boolean modified = false;
-      for (var entry : this) {
-        if (!collection.contains(entry) && remove(entry)) {
-          modified = true;
-        }
-      }
-      return modified;
-    }
-
-    @Override
-    public Iterator<Entry<K, V>> iterator() {
-      return new EntryIterator<>(cache);
-    }
-
-    @Override
-    public Spliterator<Entry<K, V>> spliterator() {
-      return new EntrySpliterator<>(cache);
-    }
-  }
-
-  /** An adapter to safely externalize the entry iterator. */
-  static final class EntryIterator<K, V> implements Iterator<Entry<K, V>> {
-    final UnboundedLocalCache<K, V> cache;
-    final Iterator<Entry<K, V>> iterator;
-    @Nullable Entry<K, V> entry;
-
-    EntryIterator(UnboundedLocalCache<K, V> cache) {
-      this.iterator = cache.data.entrySet().iterator();
-      this.cache = cache;
-    }
-
-    @Override
-    public boolean hasNext() {
-      return iterator.hasNext();
-    }
-
-    @Override
-    public Entry<K, V> next() {
-      entry = iterator.next();
-      return new WriteThroughEntry<>(cache, entry.getKey(), entry.getValue());
+    @Nullable
+    public V putIfAbsent(K key, V value) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
     @SuppressWarnings("ResultOfMethodCallIgnored")
-    public void remove() {
-      if (entry == null) {
-        throw new IllegalStateException();
-      }
-      cache.remove(entry.getKey());
-      entry = null;
-    }
-  }
-
-  /** An adapter to safely externalize the entry spliterator. */
-  static final class EntrySpliterator<K, V> implements Spliterator<Entry<K, V>> {
-    final Spliterator<Entry<K, V>> spliterator;
-    final UnboundedLocalCache<K, V> cache;
-
-    EntrySpliterator(UnboundedLocalCache<K, V> cache) {
-      this(cache, cache.data.entrySet().spliterator());
-    }
-
-    EntrySpliterator(UnboundedLocalCache<K, V> cache, Spliterator<Entry<K, V>> spliterator) {
-      this.spliterator = requireNonNull(spliterator);
-      this.cache = requireNonNull(cache);
+    public void putAll(Map<? extends K, ? extends V> map) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public void forEachRemaining(Consumer<? super Entry<K, V>> action) {
-      requireNonNull(action);
-      spliterator.forEachRemaining(entry -> {
-        var e = new WriteThroughEntry<>(cache, entry.getKey(), entry.getValue());
-        action.accept(e);
-      });
+    @Nullable
+    public V remove(Object key) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public boolean tryAdvance(Consumer<? super Entry<K, V>> action) {
-      requireNonNull(action);
-      return spliterator.tryAdvance(entry -> {
-        var e = new WriteThroughEntry<>(cache, entry.getKey(), entry.getValue());
-        action.accept(e);
-      });
+    public boolean remove(Object key, @Nullable Object value) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public @Nullable EntrySpliterator<K, V> trySplit() {
-      Spliterator<Entry<K, V>> split = spliterator.trySplit();
-      return (split == null) ? null : new EntrySpliterator<>(cache, split);
+    @Nullable
+    public V replace(K key, V value) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public long estimateSize() {
-      return spliterator.estimateSize();
+    public boolean replace(K key, V oldValue, V newValue) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public int characteristics() {
-      return DISTINCT | CONCURRENT | NONNULL;
-    }
-  }
-
-  /* --------------- Manual Cache --------------- */
-
-  static class UnboundedLocalManualCache<K, V> implements LocalManualCache<K, V>, Serializable {
-    private static final long serialVersionUID = 1;
-
-    final UnboundedLocalCache<K, V> cache;
-    @Nullable Policy<K, V> policy;
-
-    UnboundedLocalManualCache(Caffeine<K, V> builder) {
-      cache = new UnboundedLocalCache<>(builder, /* isAsync= */ false);
+    public boolean replace(K key, V oldValue, V newValue, boolean shouldDiscardRefresh) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public final UnboundedLocalCache<K, V> cache() {
-      return cache;
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    public boolean equals(@Nullable Object o) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public final Policy<K, V> policy() {
-      if (policy == null) {
-        Function<@Nullable V, @Nullable V> identity = v -> v;
-        policy = new UnboundedPolicy<>(cache, identity);
-      }
-      return policy;
-    }
-
-    private void readObject(ObjectInputStream stream) throws InvalidObjectException {
-      throw new InvalidObjectException("Proxy required");
-    }
-
-    Object writeReplace() {
-      var proxy = new SerializationProxy<K, V>();
-      proxy.isRecordingStats = cache.isRecordingStats;
-      proxy.removalListener = cache.removalListener;
-      return proxy;
-    }
-  }
-
-  /** An eviction policy that supports no bounding. */
-  static final class UnboundedPolicy<K, V> implements Policy<K, V> {
-    final Function<@Nullable V, @Nullable V> transformer;
-    final UnboundedLocalCache<K, V> cache;
-
-    UnboundedPolicy(UnboundedLocalCache<K, V> cache,
-        Function<@Nullable V, @Nullable V> transformer) {
-      this.transformer = transformer;
-      this.cache = cache;
-    }
-    @Override public boolean isRecordingStats() {
-      return cache.isRecordingStats;
-    }
-    @Override public @Nullable V getIfPresentQuietly(K key) {
-      return transformer.apply(cache.data.get(key));
-    }
-    @Override public @Nullable CacheEntry<K, V> getEntryIfPresentQuietly(K key) {
-      V value = transformer.apply(cache.data.get(key));
-      return (value == null) ? null : SnapshotEntry.forEntry(key, value);
-    }
-    @SuppressWarnings("Java9CollectionFactory")
-    @Override public Map<K, CompletableFuture<V>> refreshes() {
-      var refreshes = cache.refreshes;
-      if ((refreshes == null) || refreshes.isEmpty()) {
-        @SuppressWarnings({"ImmutableMapOf", "RedundantUnmodifiable"})
-        Map<K, CompletableFuture<V>> emptyMap = Collections.unmodifiableMap(Collections.emptyMap());
-        return emptyMap;
-      }
-      @SuppressWarnings("unchecked")
-      var castedRefreshes = (Map<K, CompletableFuture<V>>) (Object) refreshes;
-      return Collections.unmodifiableMap(new HashMap<>(castedRefreshes));
-    }
-    @Override public Optional<Eviction<K, V>> eviction() {
-      return Optional.empty();
-    }
-    @Override public Optional<FixedExpiration<K, V>> expireAfterAccess() {
-      return Optional.empty();
-    }
-    @Override public Optional<FixedExpiration<K, V>> expireAfterWrite() {
-      return Optional.empty();
-    }
-    @Override public Optional<VarExpiration<K, V>> expireVariably() {
-      return Optional.empty();
-    }
-    @Override public Optional<FixedRefresh<K, V>> refreshAfterWrite() {
-      return Optional.empty();
-    }
-  }
-
-  /* --------------- Loading Cache --------------- */
-
-  static final class UnboundedLocalLoadingCache<K, V> extends UnboundedLocalManualCache<K, V>
-      implements LocalLoadingCache<K, V> {
-    private static final long serialVersionUID = 1;
-
-    final Function<K, @Nullable V> mappingFunction;
-    final CacheLoader<? super K, V> cacheLoader;
-    final @Nullable Function<Set<? extends K>, Map<K, V>> bulkMappingFunction;
-
-    UnboundedLocalLoadingCache(Caffeine<K, V> builder, CacheLoader<? super K, V> cacheLoader) {
-      super(builder);
-      this.cacheLoader = cacheLoader;
-      this.mappingFunction = newMappingFunction(cacheLoader);
-      this.bulkMappingFunction = newBulkMappingFunction(cacheLoader);
+    public int hashCode() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public AsyncCacheLoader<? super K, V> cacheLoader() {
-      return cacheLoader;
+    public String toString() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public Function<K, @Nullable V> mappingFunction() {
-      return mappingFunction;
+    public Set<K> keySet() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public @Nullable Function<Set<? extends K>, Map<K, V>>  bulkMappingFunction() {
-      return bulkMappingFunction;
+    public Collection<V> values() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    Object writeReplace() {
-      @SuppressWarnings("unchecked")
-      var proxy = (SerializationProxy<K, V>) super.writeReplace();
-      proxy.cacheLoader = cacheLoader;
-      return proxy;
+    public Set<Entry<K, V>> entrySet() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
-    private void readObject(ObjectInputStream stream) throws InvalidObjectException {
-      throw new InvalidObjectException("Proxy required");
-    }
-  }
+    /**
+     * An adapter to safely externalize the keys.
+     */
+    static final class KeySetView<K> extends AbstractSet<K> {
 
-  /* --------------- Async Cache --------------- */
+        final UnboundedLocalCache<K, ?> cache;
 
-  static final class UnboundedLocalAsyncCache<K, V> implements LocalAsyncCache<K, V>, Serializable {
-    private static final long serialVersionUID = 1;
+        KeySetView(UnboundedLocalCache<K, ?> cache) {
+            this.cache = requireNonNull(cache);
+        }
 
-    final UnboundedLocalCache<K, CompletableFuture<V>> cache;
+        @Override
+        public boolean isEmpty() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
 
-    @Nullable ConcurrentMap<K, CompletableFuture<V>> mapView;
-    @Nullable CacheView<K, V> cacheView;
-    @Nullable Policy<K, V> policy;
+        @Override
+        public int size() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
 
-    @SuppressWarnings("unchecked")
-    UnboundedLocalAsyncCache(Caffeine<K, V> builder) {
-      cache = new UnboundedLocalCache<>(
-          (Caffeine<K, CompletableFuture<V>>) builder, /* isAsync= */ true);
-    }
+        @Override
+        public void clear() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
 
-    @Override
-    public UnboundedLocalCache<K, CompletableFuture<V>> cache() {
-      return cache;
-    }
+        @Override
+        @SuppressWarnings("SuspiciousMethodCalls")
+        public boolean contains(Object o) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
 
-    @Override
-    public ConcurrentMap<K, CompletableFuture<V>> asMap() {
-      return (mapView == null) ? (mapView = new AsyncAsMapView<>(this)) : mapView;
-    }
+        @Override
+        public boolean removeAll(Collection<?> collection) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
 
-    @Override
-    public Cache<K, V> synchronous() {
-      return (cacheView == null) ? (cacheView = new CacheView<>(this)) : cacheView;
-    }
+        @Override
+        public boolean remove(Object o) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
 
-    @Override
-    public Policy<K, V> policy() {
-      @SuppressWarnings("unchecked")
-      var castCache = (UnboundedLocalCache<K, V>) cache;
-      Function<CompletableFuture<V>, @Nullable V> transformer = Async::getIfReady;
-      @SuppressWarnings("unchecked")
-      var castTransformer = (Function<@Nullable V, @Nullable V>) transformer;
-      return (policy == null)
-          ? (policy = new UnboundedPolicy<>(castCache, castTransformer))
-          : policy;
-    }
+        @Override
+        public boolean removeIf(Predicate<? super K> filter) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
 
-    private void readObject(ObjectInputStream stream) throws InvalidObjectException {
-      throw new InvalidObjectException("Proxy required");
-    }
+        @Override
+        public boolean retainAll(Collection<?> collection) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
 
-    Object writeReplace() {
-      var proxy = new SerializationProxy<K, V>();
-      proxy.isRecordingStats = cache.isRecordingStats;
-      proxy.removalListener = cache.removalListener;
-      proxy.async = true;
-      return proxy;
-    }
-  }
+        @Override
+        public void forEach(Consumer<? super K> action) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
 
-  /* --------------- Async Loading Cache --------------- */
+        @Override
+        public Iterator<K> iterator() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
 
-  static final class UnboundedLocalAsyncLoadingCache<K, V>
-      extends LocalAsyncLoadingCache<K, V> implements Serializable {
-    private static final long serialVersionUID = 1;
+        @Override
+        public Spliterator<K> spliterator() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
 
-    final UnboundedLocalCache<K, CompletableFuture<V>> cache;
+        @Override
+        public Object[] toArray() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
 
-    @Nullable ConcurrentMap<K, CompletableFuture<V>> mapView;
-    @Nullable Policy<K, V> policy;
-
-    @SuppressWarnings("unchecked")
-    UnboundedLocalAsyncLoadingCache(Caffeine<K, V> builder, AsyncCacheLoader<? super K, V> loader) {
-      super(loader);
-      cache = new UnboundedLocalCache<>(
-          (Caffeine<K, CompletableFuture<V>>) builder, /* isAsync= */ true);
+        @Override
+        public <T> T[] toArray(T[] array) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
     }
 
-    @Override
-    public LocalCache<K, CompletableFuture<V>> cache() {
-      return cache;
+    /**
+     * An adapter to safely externalize the key iterator.
+     */
+    static final class KeyIterator<K> implements Iterator<K> {
+
+        final UnboundedLocalCache<K, ?> cache;
+
+        final Iterator<K> iterator;
+
+        @Nullable
+        K current;
+
+        KeyIterator(UnboundedLocalCache<K, ?> cache) {
+            this.iterator = cache.data.keySet().iterator();
+            this.cache = cache;
+        }
+
+        @Override
+        public boolean hasNext() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public K next() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        @SuppressWarnings("ResultOfMethodCallIgnored")
+        public void remove() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
     }
 
-    @Override
-    public ConcurrentMap<K, CompletableFuture<V>> asMap() {
-      return (mapView == null) ? (mapView = new AsyncAsMapView<>(this)) : mapView;
+    /**
+     * An adapter to safely externalize the key spliterator.
+     */
+    static final class KeySpliterator<K, V> implements Spliterator<K> {
+
+        final Spliterator<K> spliterator;
+
+        KeySpliterator(UnboundedLocalCache<K, V> cache) {
+            this(cache.data.keySet().spliterator());
+        }
+
+        KeySpliterator(Spliterator<K> spliterator) {
+            this.spliterator = requireNonNull(spliterator);
+        }
+
+        @Override
+        public void forEachRemaining(Consumer<? super K> action) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public boolean tryAdvance(Consumer<? super K> action) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        @Nullable
+        public KeySpliterator<K, V> trySplit() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public long estimateSize() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public int characteristics() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
     }
 
-    @Override
-    public Policy<K, V> policy() {
-      @SuppressWarnings("unchecked")
-      var castCache = (UnboundedLocalCache<K, V>) cache;
-      Function<CompletableFuture<V>, @Nullable V> transformer = Async::getIfReady;
-      @SuppressWarnings("unchecked")
-      var castTransformer = (Function<@Nullable V, @Nullable V>) transformer;
-      return (policy == null)
-          ? (policy = new UnboundedPolicy<>(castCache, castTransformer))
-          : policy;
+    /**
+     * An adapter to safely externalize the values.
+     */
+    static final class ValuesView<K, V> extends AbstractCollection<V> {
+
+        final UnboundedLocalCache<K, V> cache;
+
+        ValuesView(UnboundedLocalCache<K, V> cache) {
+            this.cache = requireNonNull(cache);
+        }
+
+        @Override
+        public boolean isEmpty() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public int size() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public void clear() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        @SuppressWarnings("SuspiciousMethodCalls")
+        public boolean contains(Object o) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public boolean removeAll(Collection<?> collection) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public boolean remove(@Nullable Object o) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public boolean removeIf(Predicate<? super V> filter) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public boolean retainAll(Collection<?> collection) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public void forEach(Consumer<? super V> action) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public Iterator<V> iterator() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public Spliterator<V> spliterator() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public Object[] toArray() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public <T> T[] toArray(T[] array) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
     }
 
-    private void readObject(ObjectInputStream stream) throws InvalidObjectException {
-      throw new InvalidObjectException("Proxy required");
+    /**
+     * An adapter to safely externalize the value iterator.
+     */
+    static final class ValueIterator<K, V> implements Iterator<V> {
+
+        final UnboundedLocalCache<K, V> cache;
+
+        final Iterator<Entry<K, V>> iterator;
+
+        @Nullable
+        Entry<K, V> entry;
+
+        ValueIterator(UnboundedLocalCache<K, V> cache) {
+            this.iterator = cache.data.entrySet().iterator();
+            this.cache = cache;
+        }
+
+        @Override
+        public boolean hasNext() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public V next() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        @SuppressWarnings("ResultOfMethodCallIgnored")
+        public void remove() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
     }
 
-    Object writeReplace() {
-      var proxy = new SerializationProxy<K, V>();
-      proxy.isRecordingStats = cache.isRecordingStats();
-      proxy.removalListener = cache.removalListener;
-      proxy.cacheLoader = cacheLoader;
-      proxy.async = true;
-      return proxy;
+    /**
+     * An adapter to safely externalize the value spliterator.
+     */
+    static final class ValueSpliterator<K, V> implements Spliterator<V> {
+
+        final Spliterator<V> spliterator;
+
+        ValueSpliterator(UnboundedLocalCache<K, V> cache) {
+            this(cache.data.values().spliterator());
+        }
+
+        ValueSpliterator(Spliterator<V> spliterator) {
+            this.spliterator = requireNonNull(spliterator);
+        }
+
+        @Override
+        public void forEachRemaining(Consumer<? super V> action) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public boolean tryAdvance(Consumer<? super V> action) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        @Nullable
+        public ValueSpliterator<K, V> trySplit() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public long estimateSize() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public int characteristics() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
     }
-  }
+
+    /**
+     * An adapter to safely externalize the entries.
+     */
+    static final class EntrySetView<K, V> extends AbstractSet<Entry<K, V>> {
+
+        final UnboundedLocalCache<K, V> cache;
+
+        EntrySetView(UnboundedLocalCache<K, V> cache) {
+            this.cache = requireNonNull(cache);
+        }
+
+        @Override
+        public boolean isEmpty() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public int size() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public void clear() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        @SuppressWarnings("SuspiciousMethodCalls")
+        public boolean contains(Object o) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public boolean removeAll(Collection<?> collection) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        @SuppressWarnings("SuspiciousMethodCalls")
+        public boolean remove(Object o) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public boolean removeIf(Predicate<? super Entry<K, V>> filter) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public boolean retainAll(Collection<?> collection) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public Iterator<Entry<K, V>> iterator() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public Spliterator<Entry<K, V>> spliterator() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
+
+    /**
+     * An adapter to safely externalize the entry iterator.
+     */
+    static final class EntryIterator<K, V> implements Iterator<Entry<K, V>> {
+
+        final UnboundedLocalCache<K, V> cache;
+
+        final Iterator<Entry<K, V>> iterator;
+
+        @Nullable
+        Entry<K, V> entry;
+
+        EntryIterator(UnboundedLocalCache<K, V> cache) {
+            this.iterator = cache.data.entrySet().iterator();
+            this.cache = cache;
+        }
+
+        @Override
+        public boolean hasNext() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public Entry<K, V> next() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        @SuppressWarnings("ResultOfMethodCallIgnored")
+        public void remove() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
+
+    /**
+     * An adapter to safely externalize the entry spliterator.
+     */
+    static final class EntrySpliterator<K, V> implements Spliterator<Entry<K, V>> {
+
+        final Spliterator<Entry<K, V>> spliterator;
+
+        final UnboundedLocalCache<K, V> cache;
+
+        EntrySpliterator(UnboundedLocalCache<K, V> cache) {
+            this(cache, cache.data.entrySet().spliterator());
+        }
+
+        EntrySpliterator(UnboundedLocalCache<K, V> cache, Spliterator<Entry<K, V>> spliterator) {
+            this.spliterator = requireNonNull(spliterator);
+            this.cache = requireNonNull(cache);
+        }
+
+        @Override
+        public void forEachRemaining(Consumer<? super Entry<K, V>> action) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public boolean tryAdvance(Consumer<? super Entry<K, V>> action) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        @Nullable
+        public EntrySpliterator<K, V> trySplit() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public long estimateSize() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public int characteristics() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
+
+    /* --------------- Manual Cache --------------- */
+    static class UnboundedLocalManualCache<K, V> implements LocalManualCache<K, V>, Serializable {
+
+        private static final long serialVersionUID = 1;
+
+        final UnboundedLocalCache<K, V> cache;
+
+        @Nullable
+        Policy<K, V> policy;
+
+        UnboundedLocalManualCache(Caffeine<K, V> builder) {
+            cache = new UnboundedLocalCache<>(builder, /* isAsync= */
+            false);
+        }
+
+        @Override
+        public final UnboundedLocalCache<K, V> cache() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public final Policy<K, V> policy() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        private void readObject(ObjectInputStream stream) throws InvalidObjectException {
+            throw new InvalidObjectException("Proxy required");
+        }
+
+        Object writeReplace() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
+
+    /**
+     * An eviction policy that supports no bounding.
+     */
+    static final class UnboundedPolicy<K, V> implements Policy<K, V> {
+
+        final Function<@Nullable V, @Nullable V> transformer;
+
+        final UnboundedLocalCache<K, V> cache;
+
+        UnboundedPolicy(UnboundedLocalCache<K, V> cache, Function<@Nullable V, @Nullable V> transformer) {
+            this.transformer = transformer;
+            this.cache = cache;
+        }
+
+        @Override
+        public boolean isRecordingStats() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        @Nullable
+        public V getIfPresentQuietly(K key) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        @Nullable
+        public CacheEntry<K, V> getEntryIfPresentQuietly(K key) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @SuppressWarnings("Java9CollectionFactory")
+        @Override
+        public Map<K, CompletableFuture<V>> refreshes() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public Optional<Eviction<K, V>> eviction() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public Optional<FixedExpiration<K, V>> expireAfterAccess() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public Optional<FixedExpiration<K, V>> expireAfterWrite() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public Optional<VarExpiration<K, V>> expireVariably() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public Optional<FixedRefresh<K, V>> refreshAfterWrite() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
+
+    /* --------------- Loading Cache --------------- */
+    static final class UnboundedLocalLoadingCache<K, V> extends UnboundedLocalManualCache<K, V> implements LocalLoadingCache<K, V> {
+
+        private static final long serialVersionUID = 1;
+
+        final Function<K, @Nullable V> mappingFunction;
+
+        final CacheLoader<? super K, V> cacheLoader;
+
+        @Nullable
+        final Function<Set<? extends K>, Map<K, V>> bulkMappingFunction;
+
+        UnboundedLocalLoadingCache(Caffeine<K, V> builder, CacheLoader<? super K, V> cacheLoader) {
+            super(builder);
+            this.cacheLoader = cacheLoader;
+            this.mappingFunction = newMappingFunction(cacheLoader);
+            this.bulkMappingFunction = newBulkMappingFunction(cacheLoader);
+        }
+
+        @Override
+        public AsyncCacheLoader<? super K, V> cacheLoader() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public Function<K, @Nullable V> mappingFunction() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        @Nullable
+        public Function<Set<? extends K>, Map<K, V>> bulkMappingFunction() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        Object writeReplace() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        private void readObject(ObjectInputStream stream) throws InvalidObjectException {
+            throw new InvalidObjectException("Proxy required");
+        }
+    }
+
+    /* --------------- Async Cache --------------- */
+    static final class UnboundedLocalAsyncCache<K, V> implements LocalAsyncCache<K, V>, Serializable {
+
+        private static final long serialVersionUID = 1;
+
+        final UnboundedLocalCache<K, CompletableFuture<V>> cache;
+
+        @Nullable
+        ConcurrentMap<K, CompletableFuture<V>> mapView;
+
+        @Nullable
+        CacheView<K, V> cacheView;
+
+        @Nullable
+        Policy<K, V> policy;
+
+        @SuppressWarnings("unchecked")
+        UnboundedLocalAsyncCache(Caffeine<K, V> builder) {
+            cache = new UnboundedLocalCache<>((Caffeine<K, CompletableFuture<V>>) builder, /* isAsync= */
+            true);
+        }
+
+        @Override
+        public UnboundedLocalCache<K, CompletableFuture<V>> cache() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public ConcurrentMap<K, CompletableFuture<V>> asMap() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public Cache<K, V> synchronous() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public Policy<K, V> policy() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        private void readObject(ObjectInputStream stream) throws InvalidObjectException {
+            throw new InvalidObjectException("Proxy required");
+        }
+
+        Object writeReplace() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
+
+    /* --------------- Async Loading Cache --------------- */
+    static final class UnboundedLocalAsyncLoadingCache<K, V> extends LocalAsyncLoadingCache<K, V> implements Serializable {
+
+        private static final long serialVersionUID = 1;
+
+        final UnboundedLocalCache<K, CompletableFuture<V>> cache;
+
+        @Nullable
+        ConcurrentMap<K, CompletableFuture<V>> mapView;
+
+        @Nullable
+        Policy<K, V> policy;
+
+        @SuppressWarnings("unchecked")
+        UnboundedLocalAsyncLoadingCache(Caffeine<K, V> builder, AsyncCacheLoader<? super K, V> loader) {
+            super(loader);
+            cache = new UnboundedLocalCache<>((Caffeine<K, CompletableFuture<V>>) builder, /* isAsync= */
+            true);
+        }
+
+        @Override
+        public LocalCache<K, CompletableFuture<V>> cache() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public ConcurrentMap<K, CompletableFuture<V>> asMap() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public Policy<K, V> policy() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        private void readObject(ObjectInputStream stream) throws InvalidObjectException {
+            throw new InvalidObjectException("Proxy required");
+        }
+
+        Object writeReplace() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
 }

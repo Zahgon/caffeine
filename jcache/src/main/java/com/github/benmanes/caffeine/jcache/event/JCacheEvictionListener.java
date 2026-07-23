@@ -16,11 +16,8 @@
 package com.github.benmanes.caffeine.jcache.event;
 
 import static java.util.Objects.requireNonNull;
-
 import javax.cache.Cache;
-
 import org.jspecify.annotations.Nullable;
-
 import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.github.benmanes.caffeine.cache.RemovalListener;
 import com.github.benmanes.caffeine.jcache.Expirable;
@@ -33,37 +30,25 @@ import com.github.benmanes.caffeine.jcache.management.JCacheStatisticsMXBean;
  * @author ben.manes@gmail.com (Ben Manes)
  */
 public final class JCacheEvictionListener<K, V> implements RemovalListener<K, Expirable<V>> {
-  private final JCacheStatisticsMXBean statistics;
-  private final EventDispatcher<K, V> dispatcher;
 
-  private @Nullable Cache<K, V> cache;
+    private final JCacheStatisticsMXBean statistics;
 
-  public JCacheEvictionListener(EventDispatcher<K, V> dispatcher,
-      JCacheStatisticsMXBean statistics) {
-    this.dispatcher = requireNonNull(dispatcher);
-    this.statistics = requireNonNull(statistics);
-  }
+    private final EventDispatcher<K, V> dispatcher;
 
-  /**
-   * Sets the cache instance that was created with this listener.
-   *
-   * @param cache the cache that uses this loader
-   */
-  public void setCache(Cache<K, V> cache) {
-    this.cache = requireNonNull(cache);
-  }
+    @Nullable
+    private Cache<K, V> cache;
 
-  @Override
-  public void onRemoval(@Nullable K key, @Nullable Expirable<V> expirable, RemovalCause cause) {
-    requireNonNull(key);
-    requireNonNull(cache);
-    requireNonNull(expirable);
-    V value = expirable.get();
-    if (cause == RemovalCause.EXPIRED) {
-      dispatcher.publishExpiredQuietly(cache, key, value);
-    } else {
-      dispatcher.publishRemovedQuietly(cache, key, value);
+    public JCacheEvictionListener(EventDispatcher<K, V> dispatcher, JCacheStatisticsMXBean statistics) {
+        this.dispatcher = requireNonNull(dispatcher);
+        this.statistics = requireNonNull(statistics);
     }
-    statistics.recordEvictions(1L);
-  }
+
+    public void setCache(Cache<K, V> cache) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public void onRemoval(@Nullable K key, @Nullable Expirable<V> expirable, RemovalCause cause) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

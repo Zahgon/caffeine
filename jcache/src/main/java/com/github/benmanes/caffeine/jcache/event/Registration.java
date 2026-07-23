@@ -16,12 +16,10 @@
 package com.github.benmanes.caffeine.jcache.event;
 
 import static java.util.Objects.requireNonNull;
-
 import javax.cache.configuration.CacheEntryListenerConfiguration;
 import javax.cache.configuration.MutableCacheEntryListenerConfiguration;
 import javax.cache.event.CacheEntryEventFilter;
 import javax.cache.event.CacheEntryListener;
-
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -31,50 +29,42 @@ import org.jspecify.annotations.Nullable;
  */
 @SuppressWarnings("ClassEscapesDefinedScope")
 public final class Registration<K, V> {
-  private final CacheEntryListenerConfiguration<K, V> configuration;
-  private final EventTypeAwareListener<K, V> listener;
-  private final CacheEntryEventFilter<K, V> filter;
 
-  public Registration(CacheEntryListenerConfiguration<K, V> configuration,
-      CacheEntryEventFilter<K, V> filter, EventTypeAwareListener<K, V> listener) {
-    this.configuration = new MutableCacheEntryListenerConfiguration<>(configuration);
-    this.listener = requireNonNull(listener);
-    this.filter = requireNonNull(filter);
-  }
+    private final CacheEntryListenerConfiguration<K, V> configuration;
 
-  /** Returns the configuration. */
-  public CacheEntryListenerConfiguration<K, V> getConfiguration() {
-    return configuration;
-  }
+    private final EventTypeAwareListener<K, V> listener;
 
-  /** Returns the registered listener. */
-  public EventTypeAwareListener<K, V> getCacheEntryListener() {
-    return listener;
-  }
+    private final CacheEntryEventFilter<K, V> filter;
 
-  /** Returns the registered filter. */
-  public CacheEntryEventFilter<K, V> getCacheEntryFilter() {
-    return filter;
-  }
-
-  /** See {@link CacheEntryListenerConfiguration#isSynchronous()}. */
-  public boolean isSynchronous() {
-    return configuration.isSynchronous();
-  }
-
-  @Override
-  public boolean equals(@Nullable Object o) {
-    if (o == this) {
-      return true;
-    } else if (!(o instanceof Registration)) {
-      return false;
+    public Registration(CacheEntryListenerConfiguration<K, V> configuration, CacheEntryEventFilter<K, V> filter, EventTypeAwareListener<K, V> listener) {
+        this.configuration = new MutableCacheEntryListenerConfiguration<>(configuration);
+        this.listener = requireNonNull(listener);
+        this.filter = requireNonNull(filter);
     }
-    var other = (Registration<?, ?>) o;
-    return configuration.equals(other.configuration);
-  }
 
-  @Override
-  public int hashCode() {
-    return configuration.hashCode();
-  }
+    public CacheEntryListenerConfiguration<K, V> getConfiguration() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public EventTypeAwareListener<K, V> getCacheEntryListener() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public CacheEntryEventFilter<K, V> getCacheEntryFilter() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public boolean isSynchronous() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public boolean equals(@Nullable Object o) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public int hashCode() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

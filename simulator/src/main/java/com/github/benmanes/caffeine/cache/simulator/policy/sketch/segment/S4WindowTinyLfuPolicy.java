@@ -18,13 +18,10 @@ package com.github.benmanes.caffeine.cache.simulator.policy.sketch.segment;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toUnmodifiableSet;
-
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
-
 import org.jspecify.annotations.Nullable;
-
 import com.github.benmanes.caffeine.cache.simulator.BasicSettings;
 import com.github.benmanes.caffeine.cache.simulator.admission.Admission;
 import com.github.benmanes.caffeine.cache.simulator.admission.Admitter;
@@ -34,7 +31,6 @@ import com.github.benmanes.caffeine.cache.simulator.policy.Policy.PolicySpec;
 import com.github.benmanes.caffeine.cache.simulator.policy.PolicyStats;
 import com.google.common.base.MoreObjects;
 import com.typesafe.config.Config;
-
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 
@@ -46,220 +42,198 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
  */
 @PolicySpec(name = "sketch.S4WindowTinyLfu")
 public final class S4WindowTinyLfuPolicy implements KeyOnlyPolicy {
-  private final Long2ObjectMap<Node> data;
-  private final PolicyStats policyStats;
-  private final Admitter admitter;
-  private final Node[] headMainQ;
-  private final int maximumSize;
-  private final int[] sizeMainQ;
-  private final Node headWindow;
-  private final int maxWindow;
-  private final int maxMain;
-  private final int levels;
 
-  private int sizeWindow;
+    private final Long2ObjectMap<Node> data;
 
-  @SuppressWarnings("Varifier")
-  public S4WindowTinyLfuPolicy(double percentMain, S4WindowTinyLfuSettings settings) {
-    this.policyStats = new PolicyStats(name() + " (%.0f%%)", 100 * (1.0d - percentMain));
-    this.admitter = Admission.TINYLFU.from(settings.config(), policyStats);
-    this.maximumSize = Math.toIntExact(settings.maximumSize());
-    this.maxMain = (int) (maximumSize * percentMain);
-    this.maxWindow = maximumSize - maxMain;
-    this.data = new Long2ObjectOpenHashMap<>();
-    this.headWindow = Node.sentinel(-1);
-    this.levels = settings.levels();
-    this.sizeMainQ = new int[levels];
-    this.headMainQ = new Node[levels];
-    Arrays.setAll(headMainQ, Node::sentinel);
-  }
+    private final PolicyStats policyStats;
 
-  /** Returns all variations of this policy based on the configuration parameters. */
-  public static Set<Policy> policies(Config config) {
-    var settings = new S4WindowTinyLfuSettings(config);
-    return settings.percentMain().stream()
-        .map(percentMain -> new S4WindowTinyLfuPolicy(percentMain, settings))
-        .collect(toUnmodifiableSet());
-  }
+    private final Admitter admitter;
 
-  @Override
-  public PolicyStats stats() {
-    return policyStats;
-  }
+    private final Node[] headMainQ;
 
-  @Override
-  public void record(long key) {
-    @Nullable Node node = data.get(key);
-    policyStats.recordOperation();
-    admitter.record(key);
-    if (node == null) {
-      onMiss(key);
-      policyStats.recordMiss();
-    } else if (node.status == Status.WINDOW) {
-      onWindowHit(node);
-      policyStats.recordHit();
-    } else if (node.status == Status.MAIN) {
-      onMainHit(node);
-      policyStats.recordHit();
-    } else {
-      throw new IllegalStateException();
-    }
-  }
+    private final int maximumSize;
 
-  /** Adds the entry to the admission window, evicting if necessary. */
-  private void onMiss(long key) {
-    var node = new Node(key, Status.WINDOW);
-    node.appendToTail(headWindow);
-    data.put(key, node);
-    sizeWindow++;
-    evict();
-  }
+    private final int[] sizeMainQ;
 
-  /** Moves the entry to the MRU position in the admission window. */
-  private void onWindowHit(Node node) {
-    node.moveToTail(headWindow);
-  }
+    private final Node headWindow;
 
-  /** Promotes the entry to the protected region's MRU position, demoting an entry if necessary. */
-  private void onMainHit(Node node) {
-    node.remove();
-    sizeMainQ[node.level]--;
-    if (node.level < (levels - 1)) {
-      node.level++;
+    private final int maxWindow;
+
+    private final int maxMain;
+
+    private final int levels;
+
+    private int sizeWindow;
+
+    @SuppressWarnings("Varifier")
+    public S4WindowTinyLfuPolicy(double percentMain, S4WindowTinyLfuSettings settings) {
+        this.policyStats = new PolicyStats(name() + " (%.0f%%)", 100 * (1.0d - percentMain));
+        this.admitter = Admission.TINYLFU.from(settings.config(), policyStats);
+        this.maximumSize = Math.toIntExact(settings.maximumSize());
+        this.maxMain = (int) (maximumSize * percentMain);
+        this.maxWindow = maximumSize - maxMain;
+        this.data = new Long2ObjectOpenHashMap<>();
+        this.headWindow = Node.sentinel(-1);
+        this.levels = settings.levels();
+        this.sizeMainQ = new int[levels];
+        this.headMainQ = new Node[levels];
+        Arrays.setAll(headMainQ, Node::sentinel);
     }
 
-    Node head = headMainQ[node.level];
-    node.appendToTail(head);
-    sizeMainQ[node.level]++;
-
-    adjust();
-  }
-
-  private void adjust() {
-    int maxPerLevel = maxMain / levels;
-    for (int i = levels - 1; i > 0; i--) {
-      if (sizeMainQ[i] > maxPerLevel) {
-        Node demote = requireNonNull(headMainQ[i].next);
-        demote.remove();
-        sizeMainQ[i]--;
-
-        demote.level = i - 1;
-        sizeMainQ[demote.level]++;
-        demote.appendToTail(headMainQ[demote.level]);
-      }
-    }
-  }
-
-  /** Evicts if the map exceeds the maximum capacity. */
-  private void evict() {
-    if (sizeWindow <= maxWindow) {
-      return;
-    }
-
-    Node candidate = requireNonNull(headWindow.next);
-    candidate.remove();
-    sizeWindow--;
-
-    candidate.appendToTail(headMainQ[0]);
-    candidate.status = Status.MAIN;
-    sizeMainQ[0]++;
-
-    if (data.size() > maximumSize) {
-      Node victim = requireNonNull(headMainQ[0].next);
-      Node evict = admitter.admit(candidate.key, victim.key) ? victim : candidate;
-      data.remove(evict.key);
-      evict.remove();
-      sizeMainQ[0]--;
-
-      policyStats.recordEviction();
-    }
-  }
-
-  @Override
-  public void finished() {
-    for (int i = 0; i < levels; i++) {
-      int level = i;
-      long count = data.values().stream()
-          .filter(node -> node.status == Status.MAIN)
-          .filter(node -> node.level == level)
-          .count();
-      checkState(count == sizeMainQ[i]);
-    }
-    checkState(data.values().stream().filter(n -> n.status == Status.WINDOW).count() == sizeWindow);
-    checkState(data.size() <= maxWindow + maxMain);
-  }
-
-  enum Status {
-    WINDOW, MAIN
-  }
-
-  /** A node on the double-linked list. */
-  static final class Node {
-    final long key;
-
-    @Nullable Node prev;
-    @Nullable Node next;
-    @Nullable Status status;
-
-    int level;
-
-    /** Creates a new, unlinked node. */
-    public Node(long key, @Nullable Status status) {
-      this.status = status;
-      this.key = key;
-    }
-
-    /** Creates a new sentinel node. */
-    static Node sentinel(int level) {
-      var node = new Node(Long.MIN_VALUE, null);
-      node.level = level;
-      node.prev = node;
-      node.next = node;
-      return node;
-    }
-
-    public void moveToTail(Node head) {
-      remove();
-      appendToTail(head);
-    }
-
-    /** Appends the node to the tail of the list. */
-    public void appendToTail(Node head) {
-      requireNonNull(head.prev);
-      Node tail = head.prev;
-      head.prev = this;
-      tail.next = this;
-      next = head;
-      prev = tail;
-    }
-
-    /** Removes the node from the list. */
-    public void remove() {
-      requireNonNull(prev);
-      requireNonNull(next);
-      prev.next = next;
-      next.prev = prev;
-      next = prev = null;
+    public static Set<Policy> policies(Config config) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public String toString() {
-      return MoreObjects.toStringHelper(this)
-          .add("key", key)
-          .add("level", level)
-          .toString();
+    public PolicyStats stats() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  public static final class S4WindowTinyLfuSettings extends BasicSettings {
-    public S4WindowTinyLfuSettings(Config config) {
-      super(config);
+    @Override
+    public void record(long key) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    public int levels() {
-      return config().getInt("s4-window-tiny-lfu.levels");
+
+    /**
+     * Adds the entry to the admission window, evicting if necessary.
+     */
+    private void onMiss(long key) {
+        var node = new Node(key, Status.WINDOW);
+        node.appendToTail(headWindow);
+        data.put(key, node);
+        sizeWindow++;
+        evict();
     }
-    public List<Double> percentMain() {
-      return config().getDoubleList("s4-window-tiny-lfu.percent-main");
+
+    /**
+     * Moves the entry to the MRU position in the admission window.
+     */
+    private void onWindowHit(Node node) {
+        node.moveToTail(headWindow);
     }
-  }
+
+    /**
+     * Promotes the entry to the protected region's MRU position, demoting an entry if necessary.
+     */
+    private void onMainHit(Node node) {
+        node.remove();
+        sizeMainQ[node.level]--;
+        if (node.level < (levels - 1)) {
+            node.level++;
+        }
+        Node head = headMainQ[node.level];
+        node.appendToTail(head);
+        sizeMainQ[node.level]++;
+        adjust();
+    }
+
+    private void adjust() {
+        int maxPerLevel = maxMain / levels;
+        for (int i = levels - 1; i > 0; i--) {
+            if (sizeMainQ[i] > maxPerLevel) {
+                Node demote = requireNonNull(headMainQ[i].next);
+                demote.remove();
+                sizeMainQ[i]--;
+                demote.level = i - 1;
+                sizeMainQ[demote.level]++;
+                demote.appendToTail(headMainQ[demote.level]);
+            }
+        }
+    }
+
+    /**
+     * Evicts if the map exceeds the maximum capacity.
+     */
+    private void evict() {
+        if (sizeWindow <= maxWindow) {
+            return;
+        }
+        Node candidate = requireNonNull(headWindow.next);
+        candidate.remove();
+        sizeWindow--;
+        candidate.appendToTail(headMainQ[0]);
+        candidate.status = Status.MAIN;
+        sizeMainQ[0]++;
+        if (data.size() > maximumSize) {
+            Node victim = requireNonNull(headMainQ[0].next);
+            Node evict = admitter.admit(candidate.key, victim.key) ? victim : candidate;
+            data.remove(evict.key);
+            evict.remove();
+            sizeMainQ[0]--;
+            policyStats.recordEviction();
+        }
+    }
+
+    @Override
+    public void finished() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    enum Status {
+
+        WINDOW, MAIN
+    }
+
+    /**
+     * A node on the double-linked list.
+     */
+    static final class Node {
+
+        final long key;
+
+        @Nullable
+        Node prev;
+
+        @Nullable
+        Node next;
+
+        @Nullable
+        Status status;
+
+        int level;
+
+        /**
+         * Creates a new, unlinked node.
+         */
+        public Node(long key, @Nullable Status status) {
+            this.status = status;
+            this.key = key;
+        }
+
+        static Node sentinel(int level) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public void moveToTail(Node head) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public void appendToTail(Node head) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public void remove() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public String toString() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
+
+    public static final class S4WindowTinyLfuSettings extends BasicSettings {
+
+        public S4WindowTinyLfuSettings(Config config) {
+            super(config);
+        }
+
+        public int levels() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public List<Double> percentMain() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
 }

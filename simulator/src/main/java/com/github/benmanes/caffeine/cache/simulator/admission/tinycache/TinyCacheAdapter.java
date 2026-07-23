@@ -25,33 +25,33 @@ import com.typesafe.config.Config;
  * @author gilga1983@gmail.com (Gil Einziger)
  */
 public final class TinyCacheAdapter implements Frequency {
-  // size between cache and sample.
-  static final int sampleFactor = 10;
-  // max frequency estimation of an item.
-  static final int maxcount = 10;
 
-  // the actual data structure.
-  final TinyCacheSketch tcs;
+    // size between cache and sample.
+    static final int sampleFactor = 10;
 
-  /**
-   * Note that in this implementation there are always 64 items per set.
-   */
-  public TinyCacheAdapter(Config config) {
-    var settings = new BasicSettings(config);
-    // number of (independent sets)
-    int nrSets = Math.toIntExact(sampleFactor * settings.maximumSize() / 64);
-    tcs = new TinyCacheSketch(nrSets, 64,settings.randomSeed());
-  }
+    // max frequency estimation of an item.
+    static final int maxcount = 10;
 
-  @Override
-  public int frequency(long e) {
-    return tcs.countItem(e);
-  }
+    // the actual data structure.
+    final TinyCacheSketch tcs;
 
-  @Override
-  public void increment(long e) {
-    if (tcs.countItem(e) < maxcount) {
-      tcs.addItem(e);
+    /**
+     * Note that in this implementation there are always 64 items per set.
+     */
+    public TinyCacheAdapter(Config config) {
+        var settings = new BasicSettings(config);
+        // number of (independent sets)
+        int nrSets = Math.toIntExact(sampleFactor * settings.maximumSize() / 64);
+        tcs = new TinyCacheSketch(nrSets, 64, settings.randomSeed());
     }
-  }
+
+    @Override
+    public int frequency(long e) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public void increment(long e) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

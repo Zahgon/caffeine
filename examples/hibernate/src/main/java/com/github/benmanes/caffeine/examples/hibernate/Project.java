@@ -16,9 +16,7 @@
 package com.github.benmanes.caffeine.examples.hibernate;
 
 import static org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE;
-
 import org.hibernate.annotations.Cache;
-
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
@@ -31,32 +29,32 @@ import jakarta.persistence.ManyToOne;
 @Cache(usage = READ_WRITE)
 public class Project {
 
-  @Id
-  @GeneratedValue
-  private long id;
+    @Id
+    @GeneratedValue
+    private long id;
 
-  private String name;
+    private String name;
 
-  @ManyToOne
-  private User assignee;
+    @ManyToOne
+    private User assignee;
 
-  public long getId() {
-    return id;
-  }
+    public long getId() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  public String getName() {
-    return name;
-  }
+    public String getName() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  public void setName(String name) {
-    this.name = name;
-  }
+    public void setName(String name) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  public User getAssignee() {
-    return assignee;
-  }
+    public User getAssignee() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  public void setAssignee(User assignee) {
-    this.assignee = assignee;
-  }
+    public void setAssignee(User assignee) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

@@ -17,13 +17,10 @@ package com.github.benmanes.caffeine.cache.simulator.policy.sketch.segment;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toUnmodifiableSet;
-
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
-
 import org.jspecify.annotations.Nullable;
-
 import com.github.benmanes.caffeine.cache.simulator.BasicSettings;
 import com.github.benmanes.caffeine.cache.simulator.admission.Admission;
 import com.github.benmanes.caffeine.cache.simulator.admission.Admitter;
@@ -34,7 +31,6 @@ import com.github.benmanes.caffeine.cache.simulator.policy.PolicyStats;
 import com.google.common.base.MoreObjects;
 import com.google.errorprone.annotations.Var;
 import com.typesafe.config.Config;
-
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 
@@ -45,121 +41,118 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
  */
 @PolicySpec(name = "sketch.RandomWindowTinyLfu")
 public final class RandomWindowTinyLfuPolicy implements KeyOnlyPolicy {
-  final Long2ObjectMap<Node> data;
-  final PolicyStats policyStats;
-  final @Nullable Node[] window;
-  final @Nullable Node[] main;
-  final Admitter admitter;
-  final int maximumSize;
-  final Random random;
 
-  int windowSize;
-  int mainSize;
+    final Long2ObjectMap<Node> data;
 
-  @SuppressWarnings("Varifier")
-  public RandomWindowTinyLfuPolicy(double percentMain, RandomWindowTinyLfuSettings settings) {
-    policyStats = new PolicyStats(name() + " (%.0f%%)", 100 * (1.0d - percentMain));
-    maximumSize = Math.toIntExact(settings.maximumSize());
-    admitter = Admission.TINYLFU.from(settings.config(), policyStats);
-    random = new Random(settings.randomSeed());
-    data = new Long2ObjectOpenHashMap<>();
+    final PolicyStats policyStats;
 
-    int maxMain = (int) (maximumSize * percentMain);
-    window = new Node[maximumSize - maxMain + 1];
-    main = new Node[maxMain + 1];
-  }
+    @Nullable
+    final Node[] window;
 
-  /** Returns all variations of this policy based on the configuration parameters. */
-  public static Set<Policy> policies(Config config) {
-    var settings = new RandomWindowTinyLfuSettings(config);
-    return settings.percentMain().stream()
-        .map(percentMain -> new RandomWindowTinyLfuPolicy(percentMain, settings))
-        .collect(toUnmodifiableSet());
-  }
+    @Nullable
+    final Node[] main;
 
-  @Override
-  public PolicyStats stats() {
-    return policyStats;
-  }
+    final Admitter admitter;
 
-  @Override
-  public void record(long key) {
-    @Var @Nullable Node node = data.get(key);
-    admitter.record(key);
-    if (node == null) {
-      node = new Node(key, windowSize);
-      policyStats.recordOperation();
-      policyStats.recordMiss();
-      window[node.index] = node;
-      data.put(key, node);
-      windowSize++;
-      evict();
-    } else {
-      policyStats.recordOperation();
-      policyStats.recordHit();
-    }
-  }
+    final int maximumSize;
 
-  /** Evicts if the map exceeds the maximum capacity. */
-  private void evict() {
-    if (windowSize <= (window.length - 1)) {
-      return;
+    final Random random;
+
+    int windowSize;
+
+    int mainSize;
+
+    @SuppressWarnings("Varifier")
+    public RandomWindowTinyLfuPolicy(double percentMain, RandomWindowTinyLfuSettings settings) {
+        policyStats = new PolicyStats(name() + " (%.0f%%)", 100 * (1.0d - percentMain));
+        maximumSize = Math.toIntExact(settings.maximumSize());
+        admitter = Admission.TINYLFU.from(settings.config(), policyStats);
+        random = new Random(settings.randomSeed());
+        data = new Long2ObjectOpenHashMap<>();
+        int maxMain = (int) (maximumSize * percentMain);
+        window = new Node[maximumSize - maxMain + 1];
+        main = new Node[maxMain + 1];
     }
 
-    Node candidate = requireNonNull(window[random.nextInt(window.length)]);
-    removeFromTable(window, candidate);
-    windowSize--;
-
-    main[mainSize] = candidate;
-    candidate.index = mainSize;
-    mainSize++;
-
-    if (data.size() > maximumSize) {
-      Node victim = requireNonNull(main[random.nextInt(main.length)]);
-      Node evict = admitter.admit(candidate.key, victim.key) ? victim : candidate;
-      removeFromTable(main, evict);
-      data.remove(evict.key);
-      mainSize--;
-
-      policyStats.recordEviction();
-    }
-  }
-
-  /** Removes the node from the table and adds the index to the free list. */
-  private static void removeFromTable(@Nullable Node[] table, Node node) {
-    int index = table.length - 1;
-    var last = requireNonNull(table[index]);
-    table[node.index] = last;
-    last.index = node.index;
-    table[index] = null;
-  }
-
-  /** A node on the double-linked list. */
-  static final class Node {
-    final long key;
-    int index;
-
-    /** Creates a new node. */
-    public Node(long key, int index) {
-      this.index = index;
-      this.key = key;
+    public static Set<Policy> policies(Config config) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public String toString() {
-      return MoreObjects.toStringHelper(this)
-          .add("key", key)
-          .add("index", index)
-          .toString();
+    public PolicyStats stats() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  public static final class RandomWindowTinyLfuSettings extends BasicSettings {
-    public RandomWindowTinyLfuSettings(Config config) {
-      super(config);
+    @Override
+    public void record(long key) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    public List<Double> percentMain() {
-      return config().getDoubleList("random-window-tiny-lfu.percent-main");
+
+    /**
+     * Evicts if the map exceeds the maximum capacity.
+     */
+    private void evict() {
+        if (windowSize <= (window.length - 1)) {
+            return;
+        }
+        Node candidate = requireNonNull(window[random.nextInt(window.length)]);
+        removeFromTable(window, candidate);
+        windowSize--;
+        main[mainSize] = candidate;
+        candidate.index = mainSize;
+        mainSize++;
+        if (data.size() > maximumSize) {
+            Node victim = requireNonNull(main[random.nextInt(main.length)]);
+            Node evict = admitter.admit(candidate.key, victim.key) ? victim : candidate;
+            removeFromTable(main, evict);
+            data.remove(evict.key);
+            mainSize--;
+            policyStats.recordEviction();
+        }
     }
-  }
+
+    /**
+     * Removes the node from the table and adds the index to the free list.
+     */
+    private static void removeFromTable(@Nullable Node[] table, Node node) {
+        int index = table.length - 1;
+        var last = requireNonNull(table[index]);
+        table[node.index] = last;
+        last.index = node.index;
+        table[index] = null;
+    }
+
+    /**
+     * A node on the double-linked list.
+     */
+    static final class Node {
+
+        final long key;
+
+        int index;
+
+        /**
+         * Creates a new node.
+         */
+        public Node(long key, int index) {
+            this.index = index;
+            this.key = key;
+        }
+
+        @Override
+        public String toString() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
+
+    public static final class RandomWindowTinyLfuSettings extends BasicSettings {
+
+        public RandomWindowTinyLfuSettings(Config config) {
+            super(config);
+        }
+
+        public List<Double> percentMain() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
 }

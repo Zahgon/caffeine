@@ -16,14 +16,11 @@
 package com.github.benmanes.caffeine.cache.simulator.parser;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.stream.Stream;
-
 import com.google.common.io.Closeables;
-
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -33,16 +30,13 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 public abstract class TextTraceReader extends AbstractTraceReader {
 
-  protected TextTraceReader(String filePath) {
-    super(filePath);
-  }
+    protected TextTraceReader(String filePath) {
+        super(filePath);
+    }
 
-  /** Returns a stream of each line in the trace file. */
-  @SuppressFBWarnings("OS_OPEN_STREAM")
-  @SuppressWarnings("PMD.CloseResource")
-  protected Stream<String> lines() {
-    InputStream input = readFile();
-    var reader = new BufferedReader(new InputStreamReader(input, UTF_8));
-    return reader.lines().map(String::trim).onClose(() -> Closeables.closeQuietly(reader));
-  }
+    @SuppressFBWarnings("OS_OPEN_STREAM")
+    @SuppressWarnings("PMD.CloseResource")
+    protected Stream<String> lines() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

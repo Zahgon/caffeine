@@ -19,9 +19,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Sets.toImmutableEnumSet;
 import static java.util.Locale.US;
 import static java.util.stream.Collectors.toUnmodifiableSet;
-
 import java.util.Set;
-
 import com.github.benmanes.caffeine.cache.simulator.BasicSettings;
 import com.github.benmanes.caffeine.cache.simulator.policy.AccessEvent;
 import com.github.benmanes.caffeine.cache.simulator.policy.Policy;
@@ -42,78 +40,62 @@ import com.typesafe.config.Config;
  */
 @PolicySpec(name = "product.TCache")
 public final class TCachePolicy implements Policy {
-  private final Cache<Long, Boolean> cache;
-  private final PolicyStats policyStats;
-  private final TCacheFactory factory;
 
-  public TCachePolicy(TCacheSettings settings, Eviction policy) {
-    policyStats = new PolicyStats(name() + " (%s)", policy);
-    factory = new TCacheFactory();
-    cache = factory.<Long, Boolean>builder()
-        .setMaxElements(Math.toIntExact(settings.maximumSize()))
-        .setEvictionPolicy(policy.type)
-        .setStatistics(true)
-        .build();
-  }
+    private final Cache<Long, Boolean> cache;
 
-  /** Returns all variations of this policy based on the configuration parameters. */
-  public static Set<Policy> policies(Config config) {
-    var settings = new TCacheSettings(config);
-    return settings.policy().stream()
-        .map(policy -> new TCachePolicy(settings, policy))
-        .collect(toUnmodifiableSet());
-  }
+    private final PolicyStats policyStats;
 
-  @Override
-  public void record(AccessEvent event) {
-    Long key = event.longKey();
-    var value = cache.get(key);
-    if (value == null) {
-      policyStats.recordMiss();
-      cache.put(key, true);
-    } else {
-      policyStats.recordHit();
+    private final TCacheFactory factory;
+
+    public TCachePolicy(TCacheSettings settings, Eviction policy) {
+        policyStats = new PolicyStats(name() + " (%s)", policy);
+        factory = new TCacheFactory();
+        cache = factory.<Long, Boolean>builder().setMaxElements(Math.toIntExact(settings.maximumSize())).setEvictionPolicy(policy.type).setStatistics(true).build();
     }
-  }
 
-  @Override
-  public PolicyStats stats() {
-    return policyStats;
-  }
-
-  @Override
-  public void finished() {
-    var stats = cache.statistics();
-    factory.close();
-
-    policyStats.addEvictions(stats.getEvictionCount());
-    checkState(policyStats.hitCount() == stats.getHitCount());
-    checkState(policyStats.missCount() == stats.getMissCount());
-  }
-
-  public static final class TCacheSettings extends BasicSettings {
-    public TCacheSettings(Config config) {
-      super(config);
+    public static Set<Policy> policies(Config config) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    public ImmutableSet<Eviction> policy() {
-      return config().getStringList("tcache.policy").stream()
-          .map(policy -> Enums.getIfPresent(Eviction.class, policy.toUpperCase(US)).toJavaUtil()
-            .orElseThrow(() -> new IllegalArgumentException("Unknown policy: " + policy)))
-          .collect(toImmutableEnumSet());
-    }
-  }
 
-  public enum Eviction {
-    LRU(EvictionPolicy.LRU),
-    LFU(EvictionPolicy.LFU);
-
-    final EvictionPolicy type;
-
-    Eviction(EvictionPolicy type) {
-      this.type = type;
+    @Override
+    public void record(AccessEvent event) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    @Override public String toString() {
-      return CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, name());
+
+    @Override
+    public PolicyStats stats() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
+
+    @Override
+    public void finished() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public static final class TCacheSettings extends BasicSettings {
+
+        public TCacheSettings(Config config) {
+            super(config);
+        }
+
+        public ImmutableSet<Eviction> policy() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
+
+    public enum Eviction {
+
+        LRU(EvictionPolicy.LRU), LFU(EvictionPolicy.LFU);
+
+        final EvictionPolicy type;
+
+        Eviction(EvictionPolicy type) {
+            this.type = type;
+        }
+
+        @Override
+        public String toString() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
 }

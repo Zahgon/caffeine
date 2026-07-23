@@ -16,9 +16,7 @@
 package com.github.benmanes.caffeine.cache;
 
 import java.util.Deque;
-
 import org.jspecify.annotations.Nullable;
-
 import com.github.benmanes.caffeine.cache.AccessOrderDeque.AccessOrder;
 
 /**
@@ -29,74 +27,76 @@ import com.github.benmanes.caffeine.cache.AccessOrderDeque.AccessOrder;
  */
 final class AccessOrderDeque<E extends AccessOrder<E>> extends AbstractLinkedDeque<E> {
 
-  @Override
-  public boolean contains(Object o) {
-    return (o instanceof AccessOrder<?>) && contains((AccessOrder<?>) o);
-  }
-
-  // A fast-path containment check
-  boolean contains(AccessOrder<?> e) {
-    return (e.getPreviousInAccessOrder() != null)
-        || (e.getNextInAccessOrder() != null)
-        || (e == first);
-  }
-
-  @Override
-  @SuppressWarnings("unchecked")
-  public boolean remove(Object o) {
-    return (o instanceof AccessOrder<?>) && remove((E) o);
-  }
-
-  // A fast-path removal
-  boolean remove(E e) {
-    if (contains(e)) {
-      unlink(e);
-      return true;
+    @Override
+    public boolean contains(Object o) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    return false;
-  }
 
-  @Override
-  public @Nullable E getPrevious(E e) {
-    return e.getPreviousInAccessOrder();
-  }
+    // A fast-path containment check
+    boolean contains(AccessOrder<?> e) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  public void setPrevious(E e, @Nullable E prev) {
-    e.setPreviousInAccessOrder(prev);
-  }
+    @Override
+    @SuppressWarnings("unchecked")
+    public boolean remove(Object o) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  public @Nullable E getNext(E e) {
-    return e.getNextInAccessOrder();
-  }
+    // A fast-path removal
+    boolean remove(E e) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  public void setNext(E e, @Nullable E next) {
-    e.setNextInAccessOrder(next);
-  }
+    @Override
+    @Nullable
+    public E getPrevious(E e) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  /**
-   * An element that is linked on the {@link Deque}.
-   */
-  interface AccessOrder<T extends AccessOrder<T>> {
+    @Override
+    public void setPrevious(E e, @Nullable E prev) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    @Nullable
+    public E getNext(E e) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public void setNext(E e, @Nullable E next) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
     /**
-     * Retrieves the previous element or {@code null} if either the element is unlinked or the
-     * first element on the deque.
+     * An element that is linked on the {@link Deque}.
      */
-    @Nullable T getPreviousInAccessOrder();
+    interface AccessOrder<T extends AccessOrder<T>> {
 
-    /** Sets the previous element or {@code null} if there is no link. */
-    void setPreviousInAccessOrder(@Nullable T prev);
+        /**
+         * Retrieves the previous element or {@code null} if either the element is unlinked or the
+         * first element on the deque.
+         */
+        @Nullable
+        T getPreviousInAccessOrder();
 
-    /**
-     * Retrieves the next element or {@code null} if either the element is unlinked or the last
-     * element on the deque.
-     */
-    @Nullable T getNextInAccessOrder();
+        /**
+         * Sets the previous element or {@code null} if there is no link.
+         */
+        void setPreviousInAccessOrder(@Nullable T prev);
 
-    /** Sets the next element or {@code null} if there is no link. */
-    void setNextInAccessOrder(@Nullable T next);
-  }
+        /**
+         * Retrieves the next element or {@code null} if either the element is unlinked or the last
+         * element on the deque.
+         */
+        @Nullable
+        T getNextInAccessOrder();
+
+        /**
+         * Sets the next element or {@code null} if there is no link.
+         */
+        void setNextInAccessOrder(@Nullable T next);
+    }
 }

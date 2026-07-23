@@ -16,14 +16,11 @@
 package com.github.benmanes.caffeine.cache.simulator.parser.libcachesim.twitter;
 
 import static com.github.benmanes.caffeine.cache.simulator.policy.Policy.Characteristic.WEIGHTED;
-
 import java.util.Set;
 import java.util.stream.Stream;
-
 import com.github.benmanes.caffeine.cache.simulator.parser.TextTraceReader;
 import com.github.benmanes.caffeine.cache.simulator.policy.AccessEvent;
 import com.github.benmanes.caffeine.cache.simulator.policy.Policy.Characteristic;
-
 import net.openhft.hashing.LongHashFunction;
 
 /**
@@ -34,25 +31,17 @@ import net.openhft.hashing.LongHashFunction;
  */
 public final class LibCacheSimTwitterTraceReader extends TextTraceReader {
 
-  public LibCacheSimTwitterTraceReader(String filePath) {
-    super(filePath);
-  }
+    public LibCacheSimTwitterTraceReader(String filePath) {
+        super(filePath);
+    }
 
-  @Override
-  public Set<Characteristic> characteristics() {
-    return Set.of(WEIGHTED);
-  }
+    @Override
+    public Set<Characteristic> characteristics() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  public Stream<AccessEvent> events() {
-    var hasher = LongHashFunction.xx3();
-    return lines()
-        .skip(1)
-        .map(line -> line.split(", "))
-        .map(array -> {
-          long key = hasher.hashChars(array[1]);
-          int weight = Integer.parseInt(array[2]);
-          return AccessEvent.forKeyAndWeight(key, weight);
-        });
-  }
+    @Override
+    public Stream<AccessEvent> events() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

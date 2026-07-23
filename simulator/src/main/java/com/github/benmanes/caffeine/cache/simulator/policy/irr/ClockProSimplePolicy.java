@@ -16,9 +16,7 @@
 package com.github.benmanes.caffeine.cache.simulator.policy.irr;
 
 import static com.google.common.base.Preconditions.checkState;
-
 import org.jspecify.annotations.Nullable;
-
 import com.github.benmanes.caffeine.cache.simulator.BasicSettings;
 import com.github.benmanes.caffeine.cache.simulator.policy.Policy.KeyOnlyPolicy;
 import com.github.benmanes.caffeine.cache.simulator.policy.Policy.PolicySpec;
@@ -27,7 +25,6 @@ import com.google.common.base.MoreObjects;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.Var;
 import com.typesafe.config.Config;
-
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 
@@ -56,357 +53,333 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
  */
 @PolicySpec(name = "irr.ClockProSimple")
 public final class ClockProSimplePolicy implements KeyOnlyPolicy {
-  // Enable to print out the internal state
-  private static final boolean debug = false;
 
-  private final Long2ObjectMap<Node> data;
-  private final PolicyStats policyStats;
+    // Enable to print out the internal state
+    private static final boolean debug = false;
 
-  private final Node headHot;
-  private final Node headCold;
-  private final Node headNonResident;
+    private final Long2ObjectMap<Node> data;
 
-  // Maximum number of resident entries (hot + resident cold)
-  private final int maxSize;
-  private final int minColdSize;
-  private final int maxColdSize;
+    private final PolicyStats policyStats;
 
-  private int sizeHot;
-  private int sizeCold;
-  private int sizeNonResident;
+    private final Node headHot;
 
-  /**
-   * To know the order of entries, epoch is used. The epoch is incremented by 1 when a new entry is
-   * inserted, or when an existing entry has been re-accessed and moved to the head. The epoch is
-   * used to determine whether an entry's test period has expired or not. Use int64 type or
-   * consider handling integer overflow.
-   * <p>
-   * For example, integer overflow can be handled by:
-   * {@snippet lang="java":
-   * // Newer returns true if x is newer epoch than y, otherwise return false. This method is safe
-   * // from integer overflow when 1) epoch data type is signed numeric type, and 2) can represent
-   * // a number greater than the maximum number of cache entries * 2.
-   * private boolean newer(long x, long y) {
-   *   if ((x ^ y) < 0 && epoch < 0) {
-   *     // If the signs of x and y are different and the current epoch
-   *     // is negative, the negative epoch is always newer.
-   *     return !(x > y);
-   *   } else {
-   *     return x > y;
-   *   }
-   * }
-   * }
-   */
-  private long epoch;
+    private final Node headCold;
 
-  // Target number of resident cold entries (adaptive):
-  //  - increases when test entry gets a hit
-  //  - decreases when test entry is removed
-  private int coldTarget;
+    private final Node headNonResident;
 
-  public ClockProSimplePolicy(Config config) {
-    var settings = new BasicSettings(config);
-    this.maxSize = Math.toIntExact(settings.maximumSize());
-    this.minColdSize = maxSize / 100;
-    this.maxColdSize = maxSize - (maxSize / 100);
-    this.policyStats = new PolicyStats(name());
-    this.data = new Long2ObjectOpenHashMap<>();
-    this.headHot = new Node();
-    this.headCold = new Node();
-    this.headNonResident = new Node();
-    this.epoch = Long.MIN_VALUE;
-  }
+    // Maximum number of resident entries (hot + resident cold)
+    private final int maxSize;
 
-  @Override
-  public PolicyStats stats() {
-    return policyStats;
-  }
+    private final int minColdSize;
 
-  @Override
-  public void finished() {
-    if (debug) {
-      printClock();
-    }
-    long cold = data.values().stream()
-      .filter(node -> node.status == Status.COLD)
-      .count();
-    long hot = data.values().stream()
-      .filter(node -> node.status == Status.HOT)
-      .count();
-    long nonResident = data.values().stream()
-      .filter(node -> node.status == Status.NR)
-      .count();
+    private final int maxColdSize;
 
-    checkState(cold == sizeCold,
-      "Cold: expected %s but was %s", sizeCold, cold);
-    checkState(hot == sizeHot,
-      "Hot: expected %s but was %s", sizeHot, hot);
-    checkState(nonResident == sizeNonResident,
-      "NonResident: expected %s but was %s", sizeNonResident, nonResident);
-    checkState(data.size() == (cold + hot + nonResident));
-    checkState(cold + hot <= maxSize);
-    checkState(nonResident <= maxSize);
-  }
+    private int sizeHot;
 
-  @Override
-  public void record(long key) {
-    @Nullable Node node = data.get(key);
-    if (node == null) {
-      onMiss(key);
-    } else if (node.status == Status.HOT || node.status == Status.COLD) {
-      onHit(node);
-    } else if (node.status == Status.NR) {
-      onNonResidentMiss(node);
-    } else {
-      throw new IllegalStateException();
-    }
-  }
+    private int sizeCold;
 
-  private void onHit(Node node) {
-    policyStats.recordOperation();
-    policyStats.recordHit();
-    node.marked = true;
-  }
+    private int sizeNonResident;
 
-  private void onMiss(long key) {
-    policyStats.recordOperation();
-    policyStats.recordMiss();
-    epoch++;
-    var node = new Node(key, epoch);
-    node.status = Status.COLD;
-    node.link(headCold);
-    data.put(key, node);
-    sizeCold++;
-    evict();
-  }
+    /**
+     * To know the order of entries, epoch is used. The epoch is incremented by 1 when a new entry is
+     * inserted, or when an existing entry has been re-accessed and moved to the head. The epoch is
+     * used to determine whether an entry's test period has expired or not. Use int64 type or
+     * consider handling integer overflow.
+     * <p>
+     * For example, integer overflow can be handled by:
+     * {@snippet lang="java":
+     * // Newer returns true if x is newer epoch than y, otherwise return false. This method is safe
+     * // from integer overflow when 1) epoch data type is signed numeric type, and 2) can represent
+     * // a number greater than the maximum number of cache entries * 2.
+     * private boolean newer(long x, long y) {
+     *   if ((x ^ y) < 0 && epoch < 0) {
+     *     // If the signs of x and y are different and the current epoch
+     *     // is negative, the negative epoch is always newer.
+     *     return !(x > y);
+     *   } else {
+     *     return x > y;
+     *   }
+     * }
+     * }
+     */
+    private long epoch;
 
-  // Prune removes all non-resident entries whose test period has expired.
-  private void prune() {
-    while ((sizeNonResident > 0) && !inTestPeriod(headNonResident.prev)) {
-      scanNonResident();
-    }
-  }
+    // Target number of resident cold entries (adaptive):
+    //  - increases when test entry gets a hit
+    //  - decreases when test entry is removed
+    private int coldTarget;
 
-  private void onNonResidentMiss(Node node) {
-    policyStats.recordOperation();
-    policyStats.recordMiss();
-    node.unlink();
-    sizeNonResident--;
-    if (canPromote(node)) {
-      node.status = Status.HOT;
-      node.link(headHot);
-      sizeHot++;
-    } else {
-      node.status = Status.COLD;
-      node.link(headCold);
-      sizeCold++;
-    }
-    node.epoch = epoch;
-    evict();
-  }
-
-  private void evict() {
-    policyStats.recordEviction();
-    while (maxSize < sizeCold + sizeHot) {
-      if (sizeCold > 0) {
-        scanCold();
-      } else {
-        scanHot(epoch);
-      }
-    }
-    prune();
-  }
-
-  private boolean canPromote(Node candidate) {
-    // Only entries in its test period can be considered to promote.
-    if (!inTestPeriod(candidate)) {
-      return false;
-    }
-    // The candidate cold entry was re-accessed during its test period, so we increment coldTarget.
-    adjustColdTarget(+1);
-    while (sizeHot > 0 && sizeHot >= maxSize - coldTarget) {
-      // Candidate's test period has been expired while scanning hot entries. Reject the promotion.
-      if (!scanHot(candidate.epoch)) {
-        return false;
-      }
-    }
-    return inTestPeriod(candidate);
-  }
-
-  private void scanCold() {
-    policyStats.recordOperation();
-    Node victim = headCold.prev;
-    victim.unlink();
-    if (victim.marked) {
-      // If its bit is set, and it is in its test period, we consider this entry as a candidate for
-      // promotion to hot, because an access during the test period indicates a competitively
-      // small reuse distance. We scan hot entries to find a hot entry with a longer reuse distance
-      // than the candidate cold entry. If we failed to find a hot entry with a longer reuse
-      // distance than the candidate, or the candidate test period is expired, we reset its
-      // reference bit and move it to the list head, and grant a new test period by renewing the
-      // epoch.
-      victim.marked = false;
-      if (canPromote(victim)) {
-        victim.status = Status.HOT;
-        victim.link(headHot);
-        sizeCold--;
-        sizeHot++;
-      } else {
-        victim.link(headCold);
-      }
-      epoch++;
-      victim.epoch = epoch;
-    } else {
-      // If the reference bit of the cold entry is unset, we replace the cold entry for a free
-      // space. If the replaced cold entry is in its test period, then it will remain in the list
-      // as a non-resident cold entry until it runs out of its test period. If the replaced cold
-      // entry is not in its test period, we move it out of the clock.
-      sizeCold--;
-      if (inTestPeriod(victim)) {
-        victim.status = Status.NR;
-        victim.link(headNonResident);
-        sizeNonResident++;
-      } else {
-        data.remove(victim.key);
-      }
-      // We keep track the number of non-resident cold entries. Once the number exceeds the limit,
-      // we terminate the test period of the oldest non-resident entry.
-      while (sizeNonResident > maxSize) {
-        scanNonResident();
-      }
-    }
-  }
-
-  // ScanHot demotes a hot entry between the oldest hot entry's epoch and the given epoch.
-  // If the demotion was successful it returns true, otherwise it returns false.
-  @CanIgnoreReturnValue
-  private boolean scanHot(@Var long epoch) {
-    for (Node victim = headHot.prev; victim.epoch <= epoch; victim = headHot.prev) {
-      policyStats.recordOperation();
-      victim.unlink();
-      // If the reference bit of the hot entry is unset, we can simply change its status and link
-      // to the head of cold list. However, if the bit is set, which indicates the entry has been
-      // re-accessed, we spare this entry, reset its reference bit and keep it as a hot entry.
-      // This is because the actual access time of the hot entry could be earlier than the cold
-      // entry. Then we move the hand forward and do the same on the hot entries with their bits
-      // set until the hand encounters a hot entry with a reference bit of zero. Then the hot
-      // entry turns into a cold entry.
-      if (victim.marked) {
-        victim.marked = false;
-        victim.link(headHot);
-        epoch++;
-        victim.epoch = epoch;
-      } else {
-        victim.status = Status.COLD;
-        victim.link(headCold);
-        sizeHot--;
-        sizeCold++;
-        return true;
-      }
-    }
-    return false;
-  }
-
-  private void scanNonResident() {
-    policyStats.recordOperation();
-    // We terminate the test period of the non-resident cold entry, and also remove it from the
-    // clock. Because the cold entry has used up its test period without a re-access and has no
-    // chance to turn into a hot entry with its next access.
-    Node victim = headNonResident.prev;
-    victim.unlink();
-    data.remove(victim.key);
-    sizeNonResident--;
-    // If a cold entry passes its test period without a re-access, we decrement coldTarget.
-    adjustColdTarget(-1);
-  }
-
-  private void adjustColdTarget(int n) {
-    coldTarget += n;
-    if (coldTarget < minColdSize) {
-      coldTarget = minColdSize;
-    } else if (coldTarget > maxColdSize) {
-      coldTarget = maxColdSize;
-    }
-  }
-
-  // Test period should be set as the largest recency of the hot entry. If an entry is
-  // older than the largest recency of the hot entry, the test period has been expired.
-  private boolean inTestPeriod(Node node) {
-    return sizeHot == 0 || node.epoch > headHot.prev.epoch;
-  }
-
-  /** Prints out the internal state of the policy. */
-  private void printClock() {
-    if (sizeCold > 0) {
-      System.out.println("** CLOCK-Pro list COLD HEAD (small recency) **");
-      for (Node n = headCold.next; n != headCold; n = n.next) {
-        System.out.println(n);
-      }
-      System.out.println("** CLOCK-Pro list COLD TAIL (large recency) **");
-    }
-    if (sizeHot > 0) {
-      System.out.println("** CLOCK-Pro list HOT HEAD (small recency) **");
-      for (Node n = headHot.next; n != headHot; n = n.next) {
-        System.out.println(n);
-      }
-      System.out.println("** CLOCK-Pro list HOT TAIL (large recency) **");
-    }
-    if (sizeNonResident > 0) {
-      System.out.println("** CLOCK-Pro list NR HEAD (small recency) **");
-      for (Node n = headNonResident.next; n != headNonResident; n = n.next) {
-        System.out.println(n);
-      }
-      System.out.println("** CLOCK-Pro list NR TAIL (large recency) **");
-    }
-  }
-
-  enum Status {
-    HOT, COLD, NR,
-  }
-
-  static final class Node {
-    final long key;
-    long epoch;
-
-    @Nullable Status status;
-    Node prev;
-    Node next;
-
-    boolean marked;
-
-    public Node() {
-      this.key = Long.MIN_VALUE;
-      prev = next = this;
-    }
-
-    public Node(long key, long epoch) {
-      this.key = key;
-      prev = next = this;
-      this.epoch = epoch;
-      this.status = Status.COLD;
-    }
-
-    public void unlink() {
-      prev.next = next;
-      next.prev = prev;
-      prev = next = this;
-    }
-
-    public void link(Node node) {
-      prev = node;
-      next = node.next;
-      prev.next = this;
-      next.prev = this;
+    public ClockProSimplePolicy(Config config) {
+        var settings = new BasicSettings(config);
+        this.maxSize = Math.toIntExact(settings.maximumSize());
+        this.minColdSize = maxSize / 100;
+        this.maxColdSize = maxSize - (maxSize / 100);
+        this.policyStats = new PolicyStats(name());
+        this.data = new Long2ObjectOpenHashMap<>();
+        this.headHot = new Node();
+        this.headCold = new Node();
+        this.headNonResident = new Node();
+        this.epoch = Long.MIN_VALUE;
     }
 
     @Override
-    public String toString() {
-      return MoreObjects.toStringHelper(this)
-        .add("key", key)
-        .add("marked", marked)
-        .add("type", status)
-        .add("epoch", epoch)
-        .toString();
+    public PolicyStats stats() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
+
+    @Override
+    public void finished() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public void record(long key) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    private void onHit(Node node) {
+        policyStats.recordOperation();
+        policyStats.recordHit();
+        node.marked = true;
+    }
+
+    private void onMiss(long key) {
+        policyStats.recordOperation();
+        policyStats.recordMiss();
+        epoch++;
+        var node = new Node(key, epoch);
+        node.status = Status.COLD;
+        node.link(headCold);
+        data.put(key, node);
+        sizeCold++;
+        evict();
+    }
+
+    // Prune removes all non-resident entries whose test period has expired.
+    private void prune() {
+        while ((sizeNonResident > 0) && !inTestPeriod(headNonResident.prev)) {
+            scanNonResident();
+        }
+    }
+
+    private void onNonResidentMiss(Node node) {
+        policyStats.recordOperation();
+        policyStats.recordMiss();
+        node.unlink();
+        sizeNonResident--;
+        if (canPromote(node)) {
+            node.status = Status.HOT;
+            node.link(headHot);
+            sizeHot++;
+        } else {
+            node.status = Status.COLD;
+            node.link(headCold);
+            sizeCold++;
+        }
+        node.epoch = epoch;
+        evict();
+    }
+
+    private void evict() {
+        policyStats.recordEviction();
+        while (maxSize < sizeCold + sizeHot) {
+            if (sizeCold > 0) {
+                scanCold();
+            } else {
+                scanHot(epoch);
+            }
+        }
+        prune();
+    }
+
+    private boolean canPromote(Node candidate) {
+        // Only entries in its test period can be considered to promote.
+        if (!inTestPeriod(candidate)) {
+            return false;
+        }
+        // The candidate cold entry was re-accessed during its test period, so we increment coldTarget.
+        adjustColdTarget(+1);
+        while (sizeHot > 0 && sizeHot >= maxSize - coldTarget) {
+            // Candidate's test period has been expired while scanning hot entries. Reject the promotion.
+            if (!scanHot(candidate.epoch)) {
+                return false;
+            }
+        }
+        return inTestPeriod(candidate);
+    }
+
+    private void scanCold() {
+        policyStats.recordOperation();
+        Node victim = headCold.prev;
+        victim.unlink();
+        if (victim.marked) {
+            // If its bit is set, and it is in its test period, we consider this entry as a candidate for
+            // promotion to hot, because an access during the test period indicates a competitively
+            // small reuse distance. We scan hot entries to find a hot entry with a longer reuse distance
+            // than the candidate cold entry. If we failed to find a hot entry with a longer reuse
+            // distance than the candidate, or the candidate test period is expired, we reset its
+            // reference bit and move it to the list head, and grant a new test period by renewing the
+            // epoch.
+            victim.marked = false;
+            if (canPromote(victim)) {
+                victim.status = Status.HOT;
+                victim.link(headHot);
+                sizeCold--;
+                sizeHot++;
+            } else {
+                victim.link(headCold);
+            }
+            epoch++;
+            victim.epoch = epoch;
+        } else {
+            // If the reference bit of the cold entry is unset, we replace the cold entry for a free
+            // space. If the replaced cold entry is in its test period, then it will remain in the list
+            // as a non-resident cold entry until it runs out of its test period. If the replaced cold
+            // entry is not in its test period, we move it out of the clock.
+            sizeCold--;
+            if (inTestPeriod(victim)) {
+                victim.status = Status.NR;
+                victim.link(headNonResident);
+                sizeNonResident++;
+            } else {
+                data.remove(victim.key);
+            }
+            // We keep track the number of non-resident cold entries. Once the number exceeds the limit,
+            // we terminate the test period of the oldest non-resident entry.
+            while (sizeNonResident > maxSize) {
+                scanNonResident();
+            }
+        }
+    }
+
+    // ScanHot demotes a hot entry between the oldest hot entry's epoch and the given epoch.
+    // If the demotion was successful it returns true, otherwise it returns false.
+    @CanIgnoreReturnValue
+    private boolean scanHot(@Var long epoch) {
+        for (Node victim = headHot.prev; victim.epoch <= epoch; victim = headHot.prev) {
+            policyStats.recordOperation();
+            victim.unlink();
+            // If the reference bit of the hot entry is unset, we can simply change its status and link
+            // to the head of cold list. However, if the bit is set, which indicates the entry has been
+            // re-accessed, we spare this entry, reset its reference bit and keep it as a hot entry.
+            // This is because the actual access time of the hot entry could be earlier than the cold
+            // entry. Then we move the hand forward and do the same on the hot entries with their bits
+            // set until the hand encounters a hot entry with a reference bit of zero. Then the hot
+            // entry turns into a cold entry.
+            if (victim.marked) {
+                victim.marked = false;
+                victim.link(headHot);
+                epoch++;
+                victim.epoch = epoch;
+            } else {
+                victim.status = Status.COLD;
+                victim.link(headCold);
+                sizeHot--;
+                sizeCold++;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void scanNonResident() {
+        policyStats.recordOperation();
+        // We terminate the test period of the non-resident cold entry, and also remove it from the
+        // clock. Because the cold entry has used up its test period without a re-access and has no
+        // chance to turn into a hot entry with its next access.
+        Node victim = headNonResident.prev;
+        victim.unlink();
+        data.remove(victim.key);
+        sizeNonResident--;
+        // If a cold entry passes its test period without a re-access, we decrement coldTarget.
+        adjustColdTarget(-1);
+    }
+
+    private void adjustColdTarget(int n) {
+        coldTarget += n;
+        if (coldTarget < minColdSize) {
+            coldTarget = minColdSize;
+        } else if (coldTarget > maxColdSize) {
+            coldTarget = maxColdSize;
+        }
+    }
+
+    // Test period should be set as the largest recency of the hot entry. If an entry is
+    // older than the largest recency of the hot entry, the test period has been expired.
+    private boolean inTestPeriod(Node node) {
+        return sizeHot == 0 || node.epoch > headHot.prev.epoch;
+    }
+
+    /**
+     * Prints out the internal state of the policy.
+     */
+    private void printClock() {
+        if (sizeCold > 0) {
+            System.out.println("** CLOCK-Pro list COLD HEAD (small recency) **");
+            for (Node n = headCold.next; n != headCold; n = n.next) {
+                System.out.println(n);
+            }
+            System.out.println("** CLOCK-Pro list COLD TAIL (large recency) **");
+        }
+        if (sizeHot > 0) {
+            System.out.println("** CLOCK-Pro list HOT HEAD (small recency) **");
+            for (Node n = headHot.next; n != headHot; n = n.next) {
+                System.out.println(n);
+            }
+            System.out.println("** CLOCK-Pro list HOT TAIL (large recency) **");
+        }
+        if (sizeNonResident > 0) {
+            System.out.println("** CLOCK-Pro list NR HEAD (small recency) **");
+            for (Node n = headNonResident.next; n != headNonResident; n = n.next) {
+                System.out.println(n);
+            }
+            System.out.println("** CLOCK-Pro list NR TAIL (large recency) **");
+        }
+    }
+
+    enum Status {
+
+        HOT, COLD, NR
+    }
+
+    static final class Node {
+
+        final long key;
+
+        long epoch;
+
+        @Nullable
+        Status status;
+
+        Node prev;
+
+        Node next;
+
+        boolean marked;
+
+        public Node() {
+            this.key = Long.MIN_VALUE;
+            prev = next = this;
+        }
+
+        public Node(long key, long epoch) {
+            this.key = key;
+            prev = next = this;
+            this.epoch = epoch;
+            this.status = Status.COLD;
+        }
+
+        public void unlink() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public void link(Node node) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public String toString() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
 }

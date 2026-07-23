@@ -16,10 +16,8 @@
 package com.github.benmanes.caffeine.cache;
 
 import static com.github.benmanes.caffeine.cache.Caffeine.UNSET_INT;
-
 import java.io.Serializable;
 import java.time.Duration;
-
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -31,89 +29,52 @@ import org.jspecify.annotations.Nullable;
  */
 @SuppressWarnings("serial")
 final class SerializationProxy<K, V> implements Serializable {
-  private static final long serialVersionUID = 1;
 
-  boolean async;
-  boolean weakKeys;
-  boolean weakValues;
-  boolean softValues;
-  boolean isRecordingStats;
-  long maximumSize = UNSET_INT;
-  long maximumWeight = UNSET_INT;
-  long refreshAfterWriteNanos = UNSET_INT;
-  long expiresAfterWriteNanos = UNSET_INT;
-  long expiresAfterAccessNanos = UNSET_INT;
+    private static final long serialVersionUID = 1;
 
-  @Nullable Ticker ticker;
-  @Nullable Expiry<?, ?> expiry;
-  @Nullable Weigher<?, ?> weigher;
-  @Nullable AsyncCacheLoader<?, ?> cacheLoader;
-  @Nullable RemovalListener<?, ?> removalListener;
-  @Nullable RemovalListener<?, ?> evictionListener;
+    boolean async;
 
-  Caffeine<Object, Object> recreateCaffeine() {
-    var builder = Caffeine.newBuilder();
-    if (ticker != null) {
-      builder.ticker(ticker);
-    }
-    if (isRecordingStats) {
-      builder.recordStats();
-    }
-    if (maximumSize != UNSET_INT) {
-      builder.maximumSize(maximumSize);
-    }
-    if (weigher != null) {
-      @SuppressWarnings("unchecked")
-      var castedWeigher = (Weigher<Object, Object>) weigher;
-      builder.maximumWeight(maximumWeight);
-      builder.weigher(castedWeigher);
-    }
-    if (expiry != null) {
-      builder.expireAfter(expiry);
-    }
-    if (expiresAfterWriteNanos != UNSET_INT) {
-      builder.expireAfterWrite(Duration.ofNanos(expiresAfterWriteNanos));
-    }
-    if (expiresAfterAccessNanos != UNSET_INT) {
-      builder.expireAfterAccess(Duration.ofNanos(expiresAfterAccessNanos));
-    }
-    if (refreshAfterWriteNanos != UNSET_INT) {
-      builder.refreshAfterWrite(Duration.ofNanos(refreshAfterWriteNanos));
-    }
-    if (weakKeys) {
-      builder.weakKeys();
-    }
-    if (weakValues) {
-      builder.weakValues();
-    }
-    if (softValues) {
-      builder.softValues();
-    }
-    if (removalListener != null) {
-      builder.removalListener(removalListener);
-    }
-    if (evictionListener != null) {
-      builder.evictionListener(evictionListener);
-    }
-    return builder;
-  }
+    boolean weakKeys;
 
-  Object readResolve() {
-    var builder = recreateCaffeine();
-    if (async) {
-      if (cacheLoader == null) {
-        return builder.buildAsync();
-      }
-      @SuppressWarnings("unchecked")
-      var loader = (AsyncCacheLoader<K, V>) cacheLoader;
-      return builder.buildAsync(loader);
+    boolean weakValues;
+
+    boolean softValues;
+
+    boolean isRecordingStats;
+
+    long maximumSize = UNSET_INT;
+
+    long maximumWeight = UNSET_INT;
+
+    long refreshAfterWriteNanos = UNSET_INT;
+
+    long expiresAfterWriteNanos = UNSET_INT;
+
+    long expiresAfterAccessNanos = UNSET_INT;
+
+    @Nullable
+    Ticker ticker;
+
+    @Nullable
+    Expiry<?, ?> expiry;
+
+    @Nullable
+    Weigher<?, ?> weigher;
+
+    @Nullable
+    AsyncCacheLoader<?, ?> cacheLoader;
+
+    @Nullable
+    RemovalListener<?, ?> removalListener;
+
+    @Nullable
+    RemovalListener<?, ?> evictionListener;
+
+    Caffeine<Object, Object> recreateCaffeine() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
-    if (cacheLoader == null) {
-      return builder.build();
+    Object readResolve() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    @SuppressWarnings("unchecked")
-    var loader = (CacheLoader<K, V>) cacheLoader;
-    return builder.build(loader);
-  }
 }

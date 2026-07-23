@@ -17,9 +17,7 @@ package com.github.benmanes.caffeine.cache.simulator.policy.linked;
 
 import static com.github.benmanes.caffeine.cache.simulator.policy.Policy.Characteristic.WEIGHTED;
 import static com.google.common.base.Preconditions.checkState;
-
 import org.jspecify.annotations.Nullable;
-
 import com.github.benmanes.caffeine.cache.simulator.BasicSettings;
 import com.github.benmanes.caffeine.cache.simulator.policy.AccessEvent;
 import com.github.benmanes.caffeine.cache.simulator.policy.Policy;
@@ -28,7 +26,6 @@ import com.github.benmanes.caffeine.cache.simulator.policy.PolicyStats;
 import com.google.common.base.MoreObjects;
 import com.google.errorprone.annotations.Var;
 import com.typesafe.config.Config;
-
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 
@@ -47,142 +44,142 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
  */
 @PolicySpec(name = "linked.Sieve", characteristics = WEIGHTED)
 public final class SievePolicy implements Policy {
-  final Long2ObjectMap<Node> data;
-  final PolicyStats policyStats;
-  final long maximumSize;
 
-  @Nullable Node head;
-  @Nullable Node tail;
-  @Nullable Node hand;
+    final Long2ObjectMap<Node> data;
 
-  long size;
+    final PolicyStats policyStats;
 
-  public SievePolicy(Config config) {
-    this.data = new Long2ObjectOpenHashMap<>();
-    this.policyStats = new PolicyStats(name());
-    var settings = new BasicSettings(config);
-    this.maximumSize = settings.maximumSize();
-  }
+    final long maximumSize;
 
-  @Override
-  public void record(AccessEvent event) {
-    @Nullable Node node = data.get(event.key());
-    policyStats.recordOperation();
-    if (node == null) {
-      onMiss(event);
-    } else {
-      onHit(event, node);
-    }
-  }
+    @Nullable
+    Node head;
 
-  private void onHit(AccessEvent event, Node node) {
-    policyStats.recordWeightedHit(event.weight());
-    size += (event.weight() - node.weight);
-    node.weight = event.weight();
-    node.visited = true;
+    @Nullable
+    Node tail;
 
-    while (size > maximumSize) {
-      evict();
-    }
-  }
+    @Nullable
+    Node hand;
 
-  private void onMiss(AccessEvent event) {
-    if (event.weight() > maximumSize) {
-      policyStats.recordWeightedMiss(event.weight());
-      return;
-    }
-    while ((size + event.weight()) >= maximumSize) {
-      evict();
-    }
-    policyStats.recordWeightedMiss(event.weight());
-    var node = new Node(event.key(), event.weight());
-    data.put(event.key(), node);
-    size += event.weight();
-    addToHead(node);
-  }
+    long size;
 
-  private void evict() {
-    @Var var victim = (hand == null) ? tail : hand;
-    while ((victim != null) && victim.visited) {
-      victim.visited = false;
-      victim = (victim.prev == null) ? tail : victim.prev;
-      policyStats.recordOperation();
-    }
-    if (victim != null) {
-      policyStats.recordEviction();
-      data.remove(victim.key);
-      size -= victim.weight;
-      hand = victim.prev;
-      remove(victim);
-    }
-  }
-
-  private void addToHead(Node node) {
-    checkState(node.prev == null);
-    checkState(node.next == null);
-
-    node.next = head;
-    if (head != null) {
-      head.prev = node;
-    }
-    head = node;
-    if (tail == null) {
-      tail = node;
-    }
-  }
-
-  private void remove(Node node) {
-    if (node.prev != null) {
-      node.prev.next = node.next;
-    } else {
-      head = node.next;
-    }
-    if (node.next != null) {
-      node.next.prev = node.prev;
-    } else {
-      tail = node.prev;
-    }
-  }
-
-  @Override
-  public void finished() {
-    checkState(size <= maximumSize, "%s > %s", size, maximumSize);
-    long weightedSize = data.values().stream().mapToLong(node -> node.weight).sum();
-    checkState(weightedSize == size, "%s != %s", weightedSize, size);
-  }
-
-  @Override
-  public PolicyStats stats() {
-    return policyStats;
-  }
-
-  static final class Node {
-    final long key;
-
-    @Nullable Node prev;
-    @Nullable Node next;
-
-    int weight;
-    boolean visited;
-
-    Node() {
-      this.key = Long.MIN_VALUE;
-      this.prev = this;
-      this.next = this;
-    }
-
-    Node(long key, int weight) {
-      this.key = key;
-      this.weight = weight;
+    public SievePolicy(Config config) {
+        this.data = new Long2ObjectOpenHashMap<>();
+        this.policyStats = new PolicyStats(name());
+        var settings = new BasicSettings(config);
+        this.maximumSize = settings.maximumSize();
     }
 
     @Override
-    public String toString() {
-      return MoreObjects.toStringHelper(this)
-          .add("key", key)
-          .add("weight", weight)
-          .add("visited", visited)
-          .toString();
+    public void record(AccessEvent event) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
+
+    private void onHit(AccessEvent event, Node node) {
+        policyStats.recordWeightedHit(event.weight());
+        size += (event.weight() - node.weight);
+        node.weight = event.weight();
+        node.visited = true;
+        while (size > maximumSize) {
+            evict();
+        }
+    }
+
+    private void onMiss(AccessEvent event) {
+        if (event.weight() > maximumSize) {
+            policyStats.recordWeightedMiss(event.weight());
+            return;
+        }
+        while ((size + event.weight()) >= maximumSize) {
+            evict();
+        }
+        policyStats.recordWeightedMiss(event.weight());
+        var node = new Node(event.key(), event.weight());
+        data.put(event.key(), node);
+        size += event.weight();
+        addToHead(node);
+    }
+
+    private void evict() {
+        @Var
+        var victim = (hand == null) ? tail : hand;
+        while ((victim != null) && victim.visited) {
+            victim.visited = false;
+            victim = (victim.prev == null) ? tail : victim.prev;
+            policyStats.recordOperation();
+        }
+        if (victim != null) {
+            policyStats.recordEviction();
+            data.remove(victim.key);
+            size -= victim.weight;
+            hand = victim.prev;
+            remove(victim);
+        }
+    }
+
+    private void addToHead(Node node) {
+        checkState(node.prev == null);
+        checkState(node.next == null);
+        node.next = head;
+        if (head != null) {
+            head.prev = node;
+        }
+        head = node;
+        if (tail == null) {
+            tail = node;
+        }
+    }
+
+    private void remove(Node node) {
+        if (node.prev != null) {
+            node.prev.next = node.next;
+        } else {
+            head = node.next;
+        }
+        if (node.next != null) {
+            node.next.prev = node.prev;
+        } else {
+            tail = node.prev;
+        }
+    }
+
+    @Override
+    public void finished() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public PolicyStats stats() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    static final class Node {
+
+        final long key;
+
+        @Nullable
+        Node prev;
+
+        @Nullable
+        Node next;
+
+        int weight;
+
+        boolean visited;
+
+        Node() {
+            this.key = Long.MIN_VALUE;
+            this.prev = this;
+            this.next = this;
+        }
+
+        Node(long key, int weight) {
+            this.key = key;
+            this.weight = weight;
+        }
+
+        @Override
+        public String toString() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
 }

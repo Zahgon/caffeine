@@ -16,7 +16,6 @@
 package com.github.benmanes.caffeine.jcache.copy;
 
 import static java.util.Objects.requireNonNull;
-
 import java.lang.reflect.Array;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -37,7 +36,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.regex.Pattern;
-
 import org.jspecify.annotations.NullMarked;
 
 /**
@@ -48,128 +46,88 @@ import org.jspecify.annotations.NullMarked;
  * @author ben.manes@gmail.com (Ben Manes)
  */
 @NullMarked
-@SuppressWarnings({"ImmutableMemberCollection", "JavaUtilDate"})
+@SuppressWarnings({ "ImmutableMemberCollection", "JavaUtilDate" })
 public abstract class AbstractCopier<A> implements Copier {
-  private static final Map<Class<?>, Function<Object, Object>> JAVA_DEEP_COPY = Map.of(Date.class,
-      o -> ((Date) o).clone(), GregorianCalendar.class, o -> ((GregorianCalendar) o).clone());
-  private static final Set<Class<?>> JAVA_IMMUTABLE = Set.of(Boolean.class, Byte.class,
-      Character.class, Double.class, Float.class, Short.class, Integer.class, Long.class,
-      BigInteger.class, BigDecimal.class, String.class, Class.class, UUID.class, URL.class,
-      URI.class, Pattern.class, Inet4Address.class, Inet6Address.class, InetSocketAddress.class,
-      LocalDate.class, LocalTime.class, LocalDateTime.class, Instant.class, Duration.class);
 
-  private final Set<Class<?>> immutableClasses;
-  private final Map<Class<?>, Function<Object, Object>> deepCopyStrategies;
+    private static final Map<Class<?>, Function<Object, Object>> JAVA_DEEP_COPY = Map.of(Date.class, o -> ((Date) o).clone(), GregorianCalendar.class, o -> ((GregorianCalendar) o).clone());
 
-  protected AbstractCopier() {
-    this(javaImmutableClasses(), javaDeepCopyStrategies());
-  }
+    private static final Set<Class<?>> JAVA_IMMUTABLE = Set.of(Boolean.class, Byte.class, Character.class, Double.class, Float.class, Short.class, Integer.class, Long.class, BigInteger.class, BigDecimal.class, String.class, Class.class, UUID.class, URL.class, URI.class, Pattern.class, Inet4Address.class, Inet6Address.class, InetSocketAddress.class, LocalDate.class, LocalTime.class, LocalDateTime.class, Instant.class, Duration.class);
 
-  protected AbstractCopier(Set<Class<?>> immutableClasses,
-      Map<Class<?>, Function<Object, Object>> deepCopyStrategies) {
-    this.immutableClasses = requireNonNull(immutableClasses);
-    this.deepCopyStrategies = requireNonNull(deepCopyStrategies);
-  }
+    private final Set<Class<?>> immutableClasses;
 
-  /** Returns the set of Java native classes that are immutable. */
-  public static Set<Class<?>> javaImmutableClasses() {
-    return JAVA_IMMUTABLE;
-  }
+    private final Map<Class<?>, Function<Object, Object>> deepCopyStrategies;
 
-  /** Returns the set of Java native classes that are deeply copied. */
-  public static Map<Class<?>, Function<Object, Object>> javaDeepCopyStrategies() {
-    return JAVA_DEEP_COPY;
-  }
-
-  @Override
-  public <T> T copy(T object, ClassLoader classLoader) {
-    requireNonNull(object);
-    requireNonNull(classLoader);
-
-    if (isImmutable(object.getClass())) {
-      return object;
-    } else if (isArrayOfImmutableTypes(object.getClass())) {
-      return arrayCopy(object);
+    protected AbstractCopier() {
+        this(javaImmutableClasses(), javaDeepCopyStrategies());
     }
 
-    var deeplyCopyStrategy = deepCopyStrategies.get(object.getClass());
-    if (deeplyCopyStrategy != null) {
-      @SuppressWarnings("unchecked")
-      var copy = (T) deeplyCopyStrategy.apply(object);
-      return copy;
+    protected AbstractCopier(Set<Class<?>> immutableClasses, Map<Class<?>, Function<Object, Object>> deepCopyStrategies) {
+        this.immutableClasses = requireNonNull(immutableClasses);
+        this.deepCopyStrategies = requireNonNull(deepCopyStrategies);
     }
 
-    return roundtrip(object, classLoader);
-  }
-
-  /**
-   * Returns if the class is an immutable type and does not need to be copied.
-   *
-   * @param clazz the class of the object being copied
-   * @return if the class is an immutable type and does not need to be copied
-   */
-  protected boolean isImmutable(Class<?> clazz) {
-    return immutableClasses.contains(clazz) || clazz.isEnum();
-  }
-
-  /**
-   * Returns if the class has a known deep copy strategy.
-   *
-   * @param clazz the class of the object being copied
-   * @return if the class has a known deep copy strategy
-   */
-  protected boolean canDeeplyCopy(Class<?> clazz) {
-    return deepCopyStrategies.containsKey(clazz);
-  }
-
-  /** @return if the class represents an array of immutable values. */
-  private boolean isArrayOfImmutableTypes(Class<?> clazz) {
-    if (!clazz.isArray()) {
-      return false;
+    public static Set<Class<?>> javaImmutableClasses() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    Class<?> component = clazz.getComponentType();
-    return component.isPrimitive() || isImmutable(component);
-  }
 
-  /** @return a shallow copy of the array. */
-  @SuppressWarnings("SuspiciousSystemArraycopy")
-  private static <T> T arrayCopy(T object) {
-    int length = Array.getLength(object);
-    @SuppressWarnings("unchecked")
-    var copy = (T) Array.newInstance(object.getClass().getComponentType(), length);
-    System.arraycopy(object, 0, copy, 0, length);
-    return copy;
-  }
+    public static Map<Class<?>, Function<Object, Object>> javaDeepCopyStrategies() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  /**
-   * Performs the serialization and deserialization, returning the copied object.
-   *
-   * @param object the object to serialize
-   * @param classLoader the classloader to create the instance with
-   * @param <T> the type of object being copied
-   * @return the deserialized object
-   */
-  protected <T> T roundtrip(T object, ClassLoader classLoader) {
-    A data = serialize(object);
-    @SuppressWarnings("unchecked")
-    var copy = (T) deserialize(data, classLoader);
-    return copy;
-  }
+    @Override
+    public <T> T copy(T object, ClassLoader classLoader) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  /**
-   * Serializes the object.
-   *
-   * @param object the object to serialize
-   * @return the serialized bytes
-   */
-  protected abstract A serialize(Object object);
+    protected boolean isImmutable(Class<?> clazz) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  /**
-   * Deserializes the data using the provided classloader.
-   *
-   * @param data the serialized bytes
-   * @param classLoader the classloader to create the instance with
-   * @return the deserialized object
-   */
-  protected abstract Object deserialize(A data, ClassLoader classLoader);
+    protected boolean canDeeplyCopy(Class<?> clazz) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    /**
+     * @return if the class represents an array of immutable values.
+     */
+    private boolean isArrayOfImmutableTypes(Class<?> clazz) {
+        if (!clazz.isArray()) {
+            return false;
+        }
+        Class<?> component = clazz.getComponentType();
+        return component.isPrimitive() || isImmutable(component);
+    }
+
+    /**
+     * @return a shallow copy of the array.
+     */
+    @SuppressWarnings("SuspiciousSystemArraycopy")
+    private static <T> T arrayCopy(T object) {
+        int length = Array.getLength(object);
+        @SuppressWarnings("unchecked")
+        var copy = (T) Array.newInstance(object.getClass().getComponentType(), length);
+        System.arraycopy(object, 0, copy, 0, length);
+        return copy;
+    }
+
+    protected <T> T roundtrip(T object, ClassLoader classLoader) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    /**
+     * Serializes the object.
+     *
+     * @param object the object to serialize
+     * @return the serialized bytes
+     */
+    protected abstract A serialize(Object object);
+
+    /**
+     * Deserializes the data using the provided classloader.
+     *
+     * @param data the serialized bytes
+     * @param classLoader the classloader to create the instance with
+     * @return the deserialized object
+     */
+    protected abstract Object deserialize(A data, ClassLoader classLoader);
 }

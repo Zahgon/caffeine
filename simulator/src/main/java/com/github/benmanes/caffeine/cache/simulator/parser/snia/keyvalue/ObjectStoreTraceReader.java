@@ -16,12 +16,10 @@
 package com.github.benmanes.caffeine.cache.simulator.parser.snia.keyvalue;
 
 import static com.github.benmanes.caffeine.cache.simulator.policy.Policy.Characteristic.WEIGHTED;
-
 import java.math.BigInteger;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Stream;
-
 import com.github.benmanes.caffeine.cache.simulator.parser.TextTraceReader;
 import com.github.benmanes.caffeine.cache.simulator.policy.AccessEvent;
 import com.github.benmanes.caffeine.cache.simulator.policy.Policy.Characteristic;
@@ -35,29 +33,17 @@ import com.google.common.primitives.Ints;
  */
 public final class ObjectStoreTraceReader extends TextTraceReader {
 
-  public ObjectStoreTraceReader(String filePath) {
-    super(filePath);
-  }
+    public ObjectStoreTraceReader(String filePath) {
+        super(filePath);
+    }
 
-  @Override
-  public Set<Characteristic> characteristics() {
-    return Set.of(WEIGHTED);
-  }
+    @Override
+    public Set<Characteristic> characteristics() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  public Stream<AccessEvent> events() {
-    return lines()
-        .map(line -> line.split(" "))
-        .filter(array -> array[1].equals("REST.GET.OBJECT"))
-        .map(array -> {
-          long start = Long.parseLong(array[4]);
-          long end = Long.parseLong(array[5]);
-          int weight = Ints.saturatedCast(end - start);
-          if (weight <= 0) {
-            return null;
-          }
-          long key = new BigInteger(array[2], 16).longValue();
-          return AccessEvent.forKeyAndWeight(key, weight);
-        }).filter(Objects::nonNull).map(Objects::requireNonNull);
-  }
+    @Override
+    public Stream<AccessEvent> events() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

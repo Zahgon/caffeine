@@ -16,7 +16,6 @@
 package com.github.benmanes.caffeine.cache.simulator.parser.lirs;
 
 import java.util.stream.LongStream;
-
 import com.github.benmanes.caffeine.cache.simulator.parser.TextTraceReader;
 import com.github.benmanes.caffeine.cache.simulator.parser.TraceReader.KeyOnlyTraceReader;
 
@@ -27,16 +26,13 @@ import com.github.benmanes.caffeine.cache.simulator.parser.TraceReader.KeyOnlyTr
  */
 public final class LirsTraceReader extends TextTraceReader implements KeyOnlyTraceReader {
 
-  public LirsTraceReader(String filePath) {
-    super(filePath);
-  }
+    public LirsTraceReader(String filePath) {
+        super(filePath);
+    }
 
-  @Override
-  @SuppressWarnings("StringIsNotEmptyPredicate")
-  public LongStream keys() {
-    return lines()
-        .filter(line -> !line.equals("*"))
-        .filter(line -> !line.isEmpty())
-        .mapToLong(Long::parseLong);
-  }
+    @Override
+    @SuppressWarnings("StringIsNotEmptyPredicate")
+    public LongStream keys() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

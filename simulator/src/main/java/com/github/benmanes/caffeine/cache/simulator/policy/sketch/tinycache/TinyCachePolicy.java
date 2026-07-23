@@ -27,32 +27,25 @@ import com.typesafe.config.Config;
  */
 @PolicySpec(name = "sketch.TinyCache")
 public final class TinyCachePolicy implements KeyOnlyPolicy {
-  private final PolicyStats policyStats;
-  private final TinyCache tinyCache;
 
-  public TinyCachePolicy(Config config) {
-    var settings = new BasicSettings(config);
-    this.policyStats = new PolicyStats(name());
-    int maximumSize = Math.toIntExact(settings.maximumSize());
-    tinyCache = new TinyCache((int) Math.ceil(maximumSize / 64.0),
-        64, settings.randomSeed());
-  }
+    private final PolicyStats policyStats;
 
-  @Override
-  public void record(long key) {
-    if (tinyCache.contains(key)) {
-      policyStats.recordHit();
-    } else {
-      boolean evicted = tinyCache.addItem(key);
-      policyStats.recordMiss();
-      if (evicted) {
-        policyStats.recordEviction();
-      }
+    private final TinyCache tinyCache;
+
+    public TinyCachePolicy(Config config) {
+        var settings = new BasicSettings(config);
+        this.policyStats = new PolicyStats(name());
+        int maximumSize = Math.toIntExact(settings.maximumSize());
+        tinyCache = new TinyCache((int) Math.ceil(maximumSize / 64.0), 64, settings.randomSeed());
     }
-  }
 
-  @Override
-  public PolicyStats stats() {
-    return policyStats;
-  }
+    @Override
+    public void record(long key) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public PolicyStats stats() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

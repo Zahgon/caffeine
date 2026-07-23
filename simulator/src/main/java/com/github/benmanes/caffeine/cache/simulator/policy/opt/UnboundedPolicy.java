@@ -16,9 +16,7 @@
 package com.github.benmanes.caffeine.cache.simulator.policy.opt;
 
 import static com.github.benmanes.caffeine.cache.simulator.policy.Policy.Characteristic.WEIGHTED;
-
 import java.util.Set;
-
 import com.github.benmanes.caffeine.cache.simulator.BasicSettings;
 import com.github.benmanes.caffeine.cache.simulator.policy.AccessEvent;
 import com.github.benmanes.caffeine.cache.simulator.policy.Policy;
@@ -26,7 +24,6 @@ import com.github.benmanes.caffeine.cache.simulator.policy.Policy.PolicySpec;
 import com.github.benmanes.caffeine.cache.simulator.policy.PolicyStats;
 import com.google.common.primitives.Ints;
 import com.typesafe.config.Config;
-
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 
@@ -39,30 +36,25 @@ import it.unimi.dsi.fastutil.longs.LongSet;
  */
 @PolicySpec(name = "opt.Unbounded", characteristics = WEIGHTED)
 public final class UnboundedPolicy implements Policy {
-  private final PolicyStats policyStats;
-  private final LongSet data;
 
-  public UnboundedPolicy(Config config, Set<Characteristic> characteristics) {
-    var settings = new BasicSettings(config);
-    int initialSize = characteristics.contains(WEIGHTED)
-        ? LongOpenHashSet.DEFAULT_INITIAL_SIZE
-        : Ints.saturatedCast(settings.maximumSize());
-    data = new LongOpenHashSet(initialSize);
-    policyStats = new PolicyStats(name());
-  }
+    private final PolicyStats policyStats;
 
-  @Override
-  public PolicyStats stats() {
-    return policyStats;
-  }
+    private final LongSet data;
 
-  @Override
-  public void record(AccessEvent event) {
-    policyStats.recordOperation();
-    if (data.add(event.key())) {
-      policyStats.recordWeightedMiss(event.weight());
-    } else {
-      policyStats.recordWeightedHit(event.weight());
+    public UnboundedPolicy(Config config, Set<Characteristic> characteristics) {
+        var settings = new BasicSettings(config);
+        int initialSize = characteristics.contains(WEIGHTED) ? LongOpenHashSet.DEFAULT_INITIAL_SIZE : Ints.saturatedCast(settings.maximumSize());
+        data = new LongOpenHashSet(initialSize);
+        policyStats = new PolicyStats(name());
     }
-  }
+
+    @Override
+    public PolicyStats stats() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public void record(AccessEvent event) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

@@ -31,3 +31,8 @@ crash-*
 hs_err_pid*.log
 replay_pid*.log
 simulator/src/main/resources/application.conf
+
+.aider*
+logs/
+.commit0_scripts/
+.github/workflows/

@@ -26,67 +26,38 @@ import com.typesafe.config.Config;
  * @author ben.manes@gmail.com (Ben Manes)
  */
 public final class PeriodicResetCountMin4 extends CountMin4 {
-  static final long ONE_MASK = 0x1111111111111111L;
 
-  final Membership doorkeeper;
+    static final long ONE_MASK = 0x1111111111111111L;
 
-  int additions;
-  int period;
+    final Membership doorkeeper;
 
-  public PeriodicResetCountMin4(Config config) {
-    super(config);
-    var settings = new BasicSettings(config);
-    doorkeeper = settings.tinyLfu().countMin4().periodic().doorkeeper().enabled()
-        ? settings.membership().filter().create(config)
-        : Membership.disabled();
-  }
+    int additions;
 
-  @Override
-  protected void ensureCapacity(long maximumSize) {
-    super.ensureCapacity(maximumSize);
-    period = (maximumSize == 0) ? 10 : (10 * table.length);
-    if (period <= 0) {
-      period = Integer.MAX_VALUE;
-    }
-  }
+    int period;
 
-  @Override
-  public int frequency(long e) {
-    @Var int count = super.frequency(e);
-    if (doorkeeper.mightContain(e)) {
-      count++;
-    }
-    return Math.min(count, 15);
-  }
-
-  @Override
-  public void increment(long e) {
-    if (!doorkeeper.put(e)) {
-      super.increment(e);
-    }
-  }
-
-  /**
-   * Reduces every counter by half of its original value. To reduce the truncation error, the sample
-   * is reduced by the number of counters with an odd value.
-   */
-  @Override
-  protected void tryReset(boolean added) {
-    if (!added) {
-      return;
+    public PeriodicResetCountMin4(Config config) {
+        super(config);
+        var settings = new BasicSettings(config);
+        doorkeeper = settings.tinyLfu().countMin4().periodic().doorkeeper().enabled() ? settings.membership().filter().create(config) : Membership.disabled();
     }
 
-    additions++;
-    if (additions != period) {
-      return;
+    @Override
+    protected void ensureCapacity(long maximumSize) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
-    @Var int count = 0;
-    for (int i = 0; i < table.length; i++) {
-      count += Long.bitCount(table[i] & ONE_MASK);
-      table[i] = (table[i] >>> 1) & RESET_MASK;
+    @Override
+    public int frequency(long e) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    additions = (additions - (count >>> 2)) >>> 1;
-    doorkeeper.clear();
-  }
+
+    @Override
+    public void increment(long e) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    protected void tryReset(boolean added) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

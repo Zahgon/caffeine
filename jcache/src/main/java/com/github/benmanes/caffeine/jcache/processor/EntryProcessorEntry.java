@@ -16,13 +16,10 @@
 package com.github.benmanes.caffeine.jcache.processor;
 
 import static java.util.Objects.requireNonNull;
-
 import java.util.Optional;
-
 import javax.cache.integration.CacheLoader;
 import javax.cache.processor.EntryProcessor;
 import javax.cache.processor.MutableEntry;
-
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -33,82 +30,64 @@ import org.jspecify.annotations.Nullable;
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public final class EntryProcessorEntry<K, V> implements MutableEntry<K, V> {
-  private final boolean hasEntry;
-  private final K key;
 
-  private Action action;
-  private @Nullable V value;
-  private Optional<CacheLoader<K, V>> cacheLoader;
+    private final boolean hasEntry;
 
-  public EntryProcessorEntry(K key, @Nullable V value, Optional<CacheLoader<K, V>> cacheLoader) {
-    this.hasEntry = (value != null);
-    this.cacheLoader = cacheLoader;
-    this.action = Action.NONE;
-    this.value = value;
-    this.key = key;
-  }
+    private final K key;
 
-  @Override
-  public boolean exists() {
-    return (getValue() != null);
-  }
+    private Action action;
 
-  @Override
-  public K getKey() {
-    return key;
-  }
+    @Nullable
+    private V value;
 
-  @Override
-  @SuppressWarnings("ConstantValue")
-  public @Nullable V getValue() {
-    if (action != Action.NONE) {
-      return value;
-    } else if (value != null) {
-      action = Action.READ;
-    } else if (cacheLoader.isPresent()) {
-      value = cacheLoader.orElseThrow().load(key);
-      cacheLoader = Optional.empty();
-      if (value != null) {
-        action = Action.LOADED;
-      }
+    private Optional<CacheLoader<K, V>> cacheLoader;
+
+    public EntryProcessorEntry(K key, @Nullable V value, Optional<CacheLoader<K, V>> cacheLoader) {
+        this.hasEntry = (value != null);
+        this.cacheLoader = cacheLoader;
+        this.action = Action.NONE;
+        this.value = value;
+        this.key = key;
     }
-    return value;
-  }
 
-  @Override
-  public void remove() {
-    action = (action == Action.CREATED) ? Action.NONE : Action.DELETED;
-    if (value != null) {
-      value = null;
+    @Override
+    public boolean exists() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  @Override
-  public void setValue(V value) {
-    requireNonNull(value);
-    if (action != Action.CREATED) {
-      action = (hasEntry && exists()) ? Action.UPDATED : Action.CREATED;
+    @Override
+    public K getKey() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    this.value = value;
-  }
 
-  /** Returns the dominant action performed by the processor on the entry. */
-  public Action getAction() {
-    return action;
-  }
-
-  @Override
-  public <T> T unwrap(Class<T> clazz) {
-    if (!clazz.isInstance(this)) {
-      throw new IllegalArgumentException("Class " + clazz + " is unknown to this implementation");
+    @Override
+    @SuppressWarnings("ConstantValue")
+    @Nullable
+    public V getValue() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    @SuppressWarnings("unchecked")
-    var castedEntry = (T) this;
-    return castedEntry;
-  }
 
-  @Override
-  public String toString() {
-    return key + "=" + getValue();
-  }
+    @Override
+    public void remove() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public void setValue(V value) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public Action getAction() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public <T> T unwrap(Class<T> clazz) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public String toString() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

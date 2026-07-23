@@ -19,7 +19,6 @@ import static com.github.benmanes.caffeine.cache.Caffeine.calculateHashMapCapaci
 import static com.github.benmanes.caffeine.cache.Caffeine.hasMethodOverride;
 import static com.github.benmanes.caffeine.cache.LocalAsyncCache.composeResult;
 import static java.util.Objects.requireNonNull;
-
 import java.lang.System.Logger;
 import java.lang.System.Logger.Level;
 import java.util.LinkedHashMap;
@@ -32,9 +31,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-
 import org.jspecify.annotations.Nullable;
-
 import com.google.errorprone.annotations.Var;
 
 /**
@@ -43,289 +40,217 @@ import com.google.errorprone.annotations.Var;
  *
  * @author ben.manes@gmail.com (Ben Manes)
  */
-abstract class LocalAsyncLoadingCache<K, V>
-    implements LocalAsyncCache<K, V>, AsyncLoadingCache<K, V> {
-  static final Logger logger = System.getLogger(LocalAsyncLoadingCache.class.getName());
+abstract class LocalAsyncLoadingCache<K, V> implements LocalAsyncCache<K, V>, AsyncLoadingCache<K, V> {
 
-  final @Nullable BiFunction<? super Set<? extends K>, ? super Executor,
-      ? extends CompletableFuture<? extends Map<? extends K, ? extends V>>> bulkMappingFunction;
-  final BiFunction<? super K, ? super Executor,
-      ? extends CompletableFuture<? extends V>> mappingFunction;
-  final AsyncCacheLoader<K, V> cacheLoader;
+    static final Logger logger = System.getLogger(LocalAsyncLoadingCache.class.getName());
 
-  @Nullable LoadingCacheView<K, V> cacheView;
+    @Nullable
+    final BiFunction<? super Set<? extends K>, ? super Executor, ? extends CompletableFuture<? extends Map<? extends K, ? extends V>>> bulkMappingFunction;
 
-  @SuppressWarnings("unchecked")
-  LocalAsyncLoadingCache(AsyncCacheLoader<? super K, V> cacheLoader) {
-    this.bulkMappingFunction = newBulkMappingFunction(cacheLoader);
-    this.cacheLoader = (AsyncCacheLoader<K, V>) cacheLoader;
-    this.mappingFunction = newMappingFunction(cacheLoader);
-  }
+    final BiFunction<? super K, ? super Executor, ? extends CompletableFuture<? extends V>> mappingFunction;
 
-  /** Returns a mapping function that adapts to {@link AsyncCacheLoader#asyncLoad}. */
-  BiFunction<
-      ? super K,
-      ? super Executor,
-      ? extends CompletableFuture<? extends V>> newMappingFunction(
-          AsyncCacheLoader<? super K, V> cacheLoader) {
-    return (key, executor) -> {
-      try {
-        return cacheLoader.asyncLoad(key, executor);
-      } catch (RuntimeException e) {
-        throw e;
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        throw new CompletionException(e);
-      } catch (Exception e) {
-        throw new CompletionException(e);
-      }
-    };
-  }
+    final AsyncCacheLoader<K, V> cacheLoader;
 
-  /**
-   * Returns a mapping function that adapts to {@link AsyncCacheLoader#asyncLoadAll}, if
-   * implemented.
-   */
-  @Nullable BiFunction<Set<? extends K>, Executor, CompletableFuture<Map<K, V>>>
-      newBulkMappingFunction(AsyncCacheLoader<? super K, V> cacheLoader) {
-    if (!canBulkLoad(cacheLoader)) {
-      return null;
-    }
-    return (keysToLoad, executor) -> {
-      try {
-        @SuppressWarnings("unchecked")
-        var loaded = (CompletableFuture<Map<K, V>>) cacheLoader.asyncLoadAll(keysToLoad, executor);
-        return loaded;
-      } catch (RuntimeException e) {
-        throw e;
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        throw new CompletionException(e);
-      } catch (Exception e) {
-        throw new CompletionException(e);
-      }
-    };
-  }
+    @Nullable
+    LoadingCacheView<K, V> cacheView;
 
-  /** Returns whether the supplied cache loader has bulk load functionality. */
-  boolean canBulkLoad(AsyncCacheLoader<?, ?> loader) {
-    @Var Class<?> defaultLoaderClass = AsyncCacheLoader.class;
-    if (loader instanceof CacheLoader<?, ?>) {
-      defaultLoaderClass = CacheLoader.class;
-      if (hasMethodOverride(defaultLoaderClass, loader, "loadAll", Set.class)) {
-        return true;
-      }
-    }
-    return hasMethodOverride(defaultLoaderClass,
-        loader, "asyncLoadAll", Set.class, Executor.class);
-  }
-
-  @Override
-  public CompletableFuture<V> get(K key) {
-    return get(key, mappingFunction);
-  }
-
-  @Override
-  public CompletableFuture<Map<K, V>> getAll(Iterable<? extends K> keys) {
-    if (bulkMappingFunction != null) {
-      return getAll(keys, bulkMappingFunction);
+    @SuppressWarnings("unchecked")
+    LocalAsyncLoadingCache(AsyncCacheLoader<? super K, V> cacheLoader) {
+        this.bulkMappingFunction = newBulkMappingFunction(cacheLoader);
+        this.cacheLoader = (AsyncCacheLoader<K, V>) cacheLoader;
+        this.mappingFunction = newMappingFunction(cacheLoader);
     }
 
-    Function<K, CompletableFuture<V>> mappingFunction = this::get;
-    var result = new LinkedHashMap<K, CompletableFuture<@Nullable V>>(
-        calculateHashMapCapacity(keys));
-    for (K key : keys) {
-      var future = result.computeIfAbsent(key, mappingFunction);
-      requireNonNull(future);
+    BiFunction<? super K, ? super Executor, ? extends CompletableFuture<? extends V>> newMappingFunction(AsyncCacheLoader<? super K, V> cacheLoader) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    return composeResult(result);
-  }
 
-  @Override
-  public LoadingCache<K, V> synchronous() {
-    return (cacheView == null) ? (cacheView = new LoadingCacheView<>(this)) : cacheView;
-  }
+    @Nullable
+    BiFunction<Set<? extends K>, Executor, CompletableFuture<Map<K, V>>> newBulkMappingFunction(AsyncCacheLoader<? super K, V> cacheLoader) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  /* --------------- Synchronous views --------------- */
-
-  static final class LoadingCacheView<K, V>
-      extends AbstractCacheView<K, V> implements LoadingCache<K, V> {
-    private static final long serialVersionUID = 1L;
-
-    @SuppressWarnings("serial")
-    final LocalAsyncLoadingCache<K, V> asyncCache;
-
-    LoadingCacheView(LocalAsyncLoadingCache<K, V> asyncCache) {
-      this.asyncCache = requireNonNull(asyncCache);
+    boolean canBulkLoad(AsyncCacheLoader<?, ?> loader) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    LocalAsyncLoadingCache<K, V> asyncCache() {
-      return asyncCache;
+    public CompletableFuture<V> get(K key) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public V get(K key) {
-      return resolve(asyncCache.get(key));
+    public CompletableFuture<Map<K, V>> getAll(Iterable<? extends K> keys) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public Map<K, V> getAll(Iterable<? extends K> keys) {
-      return resolve(asyncCache.getAll(keys));
+    public LoadingCache<K, V> synchronous() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
-    @Override
-    public CompletableFuture<V> refresh(K key) {
-      requireNonNull(key);
+    /* --------------- Synchronous views --------------- */
+    static final class LoadingCacheView<K, V> extends AbstractCacheView<K, V> implements LoadingCache<K, V> {
 
-      Object keyReference = asyncCache.cache().referenceKey(key);
-      for (;;) {
-        @Var var future = tryOptimisticRefresh(key, keyReference);
-        if (future == null) {
-          future = tryComputeRefresh(key, keyReference);
-        }
-        if (future != null) {
-          return future;
-        }
-      }
-    }
+        private static final long serialVersionUID = 1L;
 
-    @Override
-    public CompletableFuture<Map<K, V>> refreshAll(Iterable<? extends K> keys) {
-      var result = new LinkedHashMap<K, CompletableFuture<@Nullable V>>(
-          calculateHashMapCapacity(keys));
-      for (K key : keys) {
-        result.computeIfAbsent(key, this::refresh);
-      }
-      return composeResult(result);
-    }
+        @SuppressWarnings("serial")
+        final LocalAsyncLoadingCache<K, V> asyncCache;
 
-    /** Attempts to avoid a reload if the entry is absent, or a load or reload is in-flight. */
-    @SuppressWarnings("FutureReturnValueIgnored")
-    private @Nullable CompletableFuture<V> tryOptimisticRefresh(K key, Object keyReference) {
-      // If a refresh is in-flight, then return it directly. If completed and not yet removed, then
-      // remove to trigger a new reload.
-      @SuppressWarnings("unchecked")
-      var lastRefresh = (CompletableFuture<V>) asyncCache.cache().refreshes().get(keyReference);
-      if (lastRefresh != null) {
-        if (Async.isReady(lastRefresh) || asyncCache.cache().isPendingEviction(key)) {
-          asyncCache.cache().refreshes().remove(keyReference, lastRefresh);
-        } else {
-          return lastRefresh;
-        }
-      }
-
-      // If the entry is absent then perform a new load, else if in-flight then return it
-      var oldValueFuture = asyncCache.cache().getIfPresentQuietly(key);
-      if ((oldValueFuture == null)
-          || (oldValueFuture.isDone() && oldValueFuture.isCompletedExceptionally())) {
-        if (oldValueFuture != null) {
-          asyncCache.cache().remove(key, oldValueFuture);
-        }
-        var future = asyncCache.get(key, asyncCache.mappingFunction, /* recordStats= */ false);
-        @SuppressWarnings("unchecked")
-        var prior = (CompletableFuture<V>) asyncCache.cache()
-            .refreshes().putIfAbsent(keyReference, future);
-        var result = (prior == null) ? future : prior;
-        result.whenComplete((r, e) -> asyncCache.cache().refreshes().remove(keyReference, result));
-        return result;
-      } else if (!oldValueFuture.isDone()) {
-        // no-op if load is pending
-        return oldValueFuture;
-      }
-
-      // Fallback to the slow path, possibly retrying
-      return null;
-    }
-
-    /** Begins a refresh if the entry has materialized and no reload is in-flight. */
-    @SuppressWarnings("FutureReturnValueIgnored")
-    private @Nullable CompletableFuture<V> tryComputeRefresh(K key, Object keyReference) {
-      var startTime = new long[1];
-      var refreshed = new boolean[1];
-      @SuppressWarnings({"rawtypes", "unchecked"})
-      @Nullable CompletableFuture<V>[] oldValueFuture = new CompletableFuture[1];
-      var future = asyncCache.cache().refreshes().computeIfAbsent(keyReference, k -> {
-        oldValueFuture[0] = asyncCache.cache().getIfPresentQuietly(key);
-        V oldValue = Async.getIfReady(oldValueFuture[0]);
-        if (oldValue == null) {
-          return null;
+        LoadingCacheView(LocalAsyncLoadingCache<K, V> asyncCache) {
+            this.asyncCache = requireNonNull(asyncCache);
         }
 
-        refreshed[0] = true;
-        startTime[0] = asyncCache.cache().statsTicker().read();
-        try {
-          var reloadFuture = asyncCache.cacheLoader.asyncReload(
-              key, oldValue, asyncCache.cache().executor());
-          return requireNonNull(reloadFuture, "Null future");
-        } catch (RuntimeException e) {
-          throw e;
-        } catch (InterruptedException e) {
-          Thread.currentThread().interrupt();
-          throw new CompletionException(e);
-        } catch (Exception e) {
-          throw new CompletionException(e);
+        @Override
+        LocalAsyncLoadingCache<K, V> asyncCache() {
+            throw new UnsupportedOperationException("STUB: not implemented");
         }
-      });
 
-      if (future == null) {
-        // Retry the optimistic path
-        return null;
-      }
+        @Override
+        public V get(K key) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
 
-      @SuppressWarnings("unchecked")
-      var castedFuture = (CompletableFuture<V>) future;
-      if (refreshed[0]) {
-        castedFuture.whenComplete((newValue, error) -> {
-          long loadTime = asyncCache.cache().statsTicker().read() - startTime[0];
-          if (error != null) {
-            if (!(error instanceof CancellationException) && !(error instanceof TimeoutException)) {
-              logger.log(Level.WARNING, "Exception thrown during refresh", error);
-            }
-            asyncCache.cache().refreshes().remove(keyReference, castedFuture);
-            asyncCache.cache().statsCounter().recordLoadFailure(loadTime);
-            return;
-          }
+        @Override
+        public Map<K, V> getAll(Iterable<? extends K> keys) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
 
-          try {
-            var discard = new boolean[1];
-            var preserveTimestamps = new boolean[1];
-            var value = asyncCache.cache().compute(key, (ignored, currentValue) -> {
-              var successful = asyncCache.cache().refreshes().remove(keyReference, castedFuture);
-              if (successful && (currentValue == oldValueFuture[0])) {
-                if (currentValue == castedFuture) {
-                  // If the reloaded value is the same instance then no-op
-                  return currentValue;
-                } else if (newValue == Async.getIfReady((CompletableFuture<?>) currentValue)) {
-                  // If the completed futures hold the same value instance then no-op
-                  return currentValue;
+        @Override
+        public CompletableFuture<V> refresh(K key) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public CompletableFuture<Map<K, V>> refreshAll(Iterable<? extends K> keys) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        /**
+         * Attempts to avoid a reload if the entry is absent, or a load or reload is in-flight.
+         */
+        @SuppressWarnings("FutureReturnValueIgnored")
+        @Nullable
+        private CompletableFuture<V> tryOptimisticRefresh(K key, Object keyReference) {
+            // If a refresh is in-flight, then return it directly. If completed and not yet removed, then
+            // remove to trigger a new reload.
+            @SuppressWarnings("unchecked")
+            var lastRefresh = (CompletableFuture<V>) asyncCache.cache().refreshes().get(keyReference);
+            if (lastRefresh != null) {
+                if (Async.isReady(lastRefresh) || asyncCache.cache().isPendingEviction(key)) {
+                    asyncCache.cache().refreshes().remove(keyReference, lastRefresh);
+                } else {
+                    return lastRefresh;
                 }
-                return (newValue == null) ? null : castedFuture;
-              }
-              // Otherwise, a write invalidated the refresh so discard it and notify the listener
-              preserveTimestamps[0] = true;
-              discard[0] = true;
-              return currentValue;
-            }, asyncCache.cache().expiry(), /* recordLoad= */ false,
-                /* recordLoadFailure= */ true, preserveTimestamps);
+            }
+            // If the entry is absent then perform a new load, else if in-flight then return it
+            var oldValueFuture = asyncCache.cache().getIfPresentQuietly(key);
+            if ((oldValueFuture == null) || (oldValueFuture.isDone() && oldValueFuture.isCompletedExceptionally())) {
+                if (oldValueFuture != null) {
+                    asyncCache.cache().remove(key, oldValueFuture);
+                }
+                var future = asyncCache.get(key, asyncCache.mappingFunction, /* recordStats= */
+                false);
+                @SuppressWarnings("unchecked")
+                var prior = (CompletableFuture<V>) asyncCache.cache().refreshes().putIfAbsent(keyReference, future);
+                var result = (prior == null) ? future : prior;
+                result.whenComplete((r, e) -> asyncCache.cache().refreshes().remove(keyReference, result));
+                return result;
+            } else if (!oldValueFuture.isDone()) {
+                // no-op if load is pending
+                return oldValueFuture;
+            }
+            // Fallback to the slow path, possibly retrying
+            return null;
+        }
 
-            if (discard[0] && (newValue != null)) {
-              var cause = (value == null) ? RemovalCause.EXPLICIT : RemovalCause.REPLACED;
-              asyncCache.cache().notifyRemoval(key, castedFuture, cause);
+        /**
+         * Begins a refresh if the entry has materialized and no reload is in-flight.
+         */
+        @SuppressWarnings("FutureReturnValueIgnored")
+        @Nullable
+        private CompletableFuture<V> tryComputeRefresh(K key, Object keyReference) {
+            var startTime = new long[1];
+            var refreshed = new boolean[1];
+            @SuppressWarnings({ "rawtypes", "unchecked" })
+            @Nullable
+            CompletableFuture<V>[] oldValueFuture = new CompletableFuture[1];
+            var future = asyncCache.cache().refreshes().computeIfAbsent(keyReference, k -> {
+                oldValueFuture[0] = asyncCache.cache().getIfPresentQuietly(key);
+                V oldValue = Async.getIfReady(oldValueFuture[0]);
+                if (oldValue == null) {
+                    return null;
+                }
+                refreshed[0] = true;
+                startTime[0] = asyncCache.cache().statsTicker().read();
+                try {
+                    var reloadFuture = asyncCache.cacheLoader.asyncReload(key, oldValue, asyncCache.cache().executor());
+                    return requireNonNull(reloadFuture, "Null future");
+                } catch (RuntimeException e) {
+                    throw e;
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new CompletionException(e);
+                } catch (Exception e) {
+                    throw new CompletionException(e);
+                }
+            });
+            if (future == null) {
+                // Retry the optimistic path
+                return null;
             }
-            if (newValue == null) {
-              asyncCache.cache().statsCounter().recordLoadFailure(loadTime);
-            } else {
-              asyncCache.cache().statsCounter().recordLoadSuccess(loadTime);
+            @SuppressWarnings("unchecked")
+            var castedFuture = (CompletableFuture<V>) future;
+            if (refreshed[0]) {
+                castedFuture.whenComplete((newValue, error) -> {
+                    long loadTime = asyncCache.cache().statsTicker().read() - startTime[0];
+                    if (error != null) {
+                        if (!(error instanceof CancellationException) && !(error instanceof TimeoutException)) {
+                            logger.log(Level.WARNING, "Exception thrown during refresh", error);
+                        }
+                        asyncCache.cache().refreshes().remove(keyReference, castedFuture);
+                        asyncCache.cache().statsCounter().recordLoadFailure(loadTime);
+                        return;
+                    }
+                    try {
+                        var discard = new boolean[1];
+                        var preserveTimestamps = new boolean[1];
+                        var value = asyncCache.cache().compute(key, (ignored, currentValue) -> {
+                            var successful = asyncCache.cache().refreshes().remove(keyReference, castedFuture);
+                            if (successful && (currentValue == oldValueFuture[0])) {
+                                if (currentValue == castedFuture) {
+                                    // If the reloaded value is the same instance then no-op
+                                    return currentValue;
+                                } else if (newValue == Async.getIfReady((CompletableFuture<?>) currentValue)) {
+                                    // If the completed futures hold the same value instance then no-op
+                                    return currentValue;
+                                }
+                                return (newValue == null) ? null : castedFuture;
+                            }
+                            // Otherwise, a write invalidated the refresh so discard it and notify the listener
+                            preserveTimestamps[0] = true;
+                            discard[0] = true;
+                            return currentValue;
+                        }, asyncCache.cache().expiry(), /* recordLoad= */
+                        false, /* recordLoadFailure= */
+                        true, preserveTimestamps);
+                        if (discard[0] && (newValue != null)) {
+                            var cause = (value == null) ? RemovalCause.EXPLICIT : RemovalCause.REPLACED;
+                            asyncCache.cache().notifyRemoval(key, castedFuture, cause);
+                        }
+                        if (newValue == null) {
+                            asyncCache.cache().statsCounter().recordLoadFailure(loadTime);
+                        } else {
+                            asyncCache.cache().statsCounter().recordLoadSuccess(loadTime);
+                        }
+                    } catch (Throwable t) {
+                        logger.log(Level.WARNING, "Exception thrown during asynchronous load", t);
+                        asyncCache.cache().statsCounter().recordLoadFailure(loadTime);
+                        asyncCache.cache().remove(key, castedFuture);
+                    }
+                });
             }
-          } catch (Throwable t) {
-            logger.log(Level.WARNING, "Exception thrown during asynchronous load", t);
-            asyncCache.cache().statsCounter().recordLoadFailure(loadTime);
-            asyncCache.cache().remove(key, castedFuture);
-          }
-        });
-      }
-      return castedFuture;
+            return castedFuture;
+        }
     }
-  }
 }

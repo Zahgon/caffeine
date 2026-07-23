@@ -16,11 +16,9 @@
 package com.github.benmanes.caffeine.cache.simulator.parser.glcache;
 
 import static com.github.benmanes.caffeine.cache.simulator.policy.Policy.Characteristic.WEIGHTED;
-
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.util.Set;
-
 import com.github.benmanes.caffeine.cache.simulator.parser.BinaryTraceReader;
 import com.github.benmanes.caffeine.cache.simulator.policy.AccessEvent;
 import com.github.benmanes.caffeine.cache.simulator.policy.Policy.Characteristic;
@@ -34,30 +32,17 @@ import com.github.benmanes.caffeine.cache.simulator.policy.Policy.Characteristic
 @SuppressWarnings("IdentifierName")
 public final class GLCacheTraceReader extends BinaryTraceReader {
 
-  public GLCacheTraceReader(String filePath) {
-    super(filePath);
-  }
+    public GLCacheTraceReader(String filePath) {
+        super(filePath);
+    }
 
-  @Override
-  public Set<Characteristic> characteristics() {
-    return Set.of(WEIGHTED);
-  }
+    @Override
+    public Set<Characteristic> characteristics() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  protected AccessEvent readEvent(DataInputStream input) throws IOException {
-    /*
-     * struct {
-     *   uint32_t timestamp;
-     *   uint64_t obj_id;
-     *   uint32_t obj_size;
-     *   int64_t next_access_vtime;  // -1 if no next access
-     * }
-     */
-    input.readInt();
-    long key = input.readLong();
-    int weight = input.readInt();
-    input.readLong();
-
-    return AccessEvent.forKeyAndWeight(key, weight);
-  }
+    @Override
+    protected AccessEvent readEvent(DataInputStream input) throws IOException {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

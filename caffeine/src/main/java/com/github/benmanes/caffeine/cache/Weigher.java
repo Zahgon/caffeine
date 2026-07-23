@@ -17,9 +17,7 @@ package com.github.benmanes.caffeine.cache;
 
 import static com.github.benmanes.caffeine.cache.Caffeine.requireArgument;
 import static java.util.Objects.requireNonNull;
-
 import java.io.Serializable;
-
 import org.jspecify.annotations.NullMarked;
 
 /**
@@ -34,68 +32,52 @@ import org.jspecify.annotations.NullMarked;
 @FunctionalInterface
 public interface Weigher<K, V> {
 
-  /**
-   * Returns the weight of a cache entry. There is no unit for entry weights; rather they are simply
-   * relative to each other.
-   *
-   * @param key the key to weigh
-   * @param value the value to weigh
-   * @return the weight of the entry; must be non-negative
-   */
-  int weigh(K key, V value);
+    /**
+     * Returns the weight of a cache entry. There is no unit for entry weights; rather they are simply
+     * relative to each other.
+     *
+     * @param key the key to weigh
+     * @param value the value to weigh
+     * @return the weight of the entry; must be non-negative
+     */
+    int weigh(K key, V value);
 
-  /**
-   * Returns a weigher where an entry has a weight of {@code 1}.
-   *
-   * @param <K> the type of keys
-   * @param <V> the type of values
-   * @return a weigher where an entry has a weight of {@code 1}
-   */
-  static <K, V> Weigher<K, V> singletonWeigher() {
-    @SuppressWarnings("unchecked")
-    var instance = (Weigher<K, V>) SingletonWeigher.INSTANCE;
-    return instance;
-  }
+    static <K, V> Weigher<K, V> singletonWeigher() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  /**
-   * Returns a weigher that enforces that the weight is non-negative.
-   *
-   * @param delegate the weigher to weighs the entry
-   * @param <K> the type of keys
-   * @param <V> the type of values
-   * @return a weigher that enforces that the weight is non-negative
-   */
-  static <K, V> Weigher<K, V> boundedWeigher(Weigher<K, V> delegate) {
-    return new BoundedWeigher<>(delegate);
-  }
+    static <K, V> Weigher<K, V> boundedWeigher(Weigher<K, V> delegate) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }
 
 enum SingletonWeigher implements Weigher<Object, Object> {
-  INSTANCE;
 
-  @Override public int weigh(Object key, Object value) {
-    return 1;
-  }
+    INSTANCE;
+
+    @Override
+    public int weigh(Object key, Object value) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }
 
 final class BoundedWeigher<K, V> implements Weigher<K, V>, Serializable {
-  private static final long serialVersionUID = 1;
 
-  @SuppressWarnings("serial")
-  final Weigher<? super K, ? super V> delegate;
+    private static final long serialVersionUID = 1;
 
-  BoundedWeigher(Weigher<? super K, ? super V> delegate) {
-    this.delegate = requireNonNull(delegate);
-  }
+    @SuppressWarnings("serial")
+    final Weigher<? super K, ? super V> delegate;
 
-  @Override
-  public int weigh(K key, V value) {
-    int weight = delegate.weigh(key, value);
-    requireArgument(weight >= 0);
-    return weight;
-  }
+    BoundedWeigher(Weigher<? super K, ? super V> delegate) {
+        this.delegate = requireNonNull(delegate);
+    }
 
-  Object writeReplace() {
-    return delegate;
-  }
+    @Override
+    public int weigh(K key, V value) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    Object writeReplace() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

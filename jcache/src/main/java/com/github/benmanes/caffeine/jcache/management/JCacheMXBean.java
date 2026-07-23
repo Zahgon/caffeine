@@ -16,7 +16,6 @@
 package com.github.benmanes.caffeine.jcache.management;
 
 import static java.util.Objects.requireNonNull;
-
 import javax.cache.Cache;
 import javax.cache.configuration.CompleteConfiguration;
 import javax.cache.management.CacheMXBean;
@@ -28,49 +27,50 @@ import javax.cache.management.CacheMXBean;
  */
 @SuppressWarnings("IdentifierName")
 public final class JCacheMXBean implements CacheMXBean {
-  private final Cache<?, ?> cache;
 
-  public JCacheMXBean(Cache<?, ?> cache) {
-    this.cache = requireNonNull(cache);
-  }
+    private final Cache<?, ?> cache;
 
-  @Override
-  public String getKeyType() {
-    return configuration().getKeyType().getName();
-  }
+    public JCacheMXBean(Cache<?, ?> cache) {
+        this.cache = requireNonNull(cache);
+    }
 
-  @Override
-  public String getValueType() {
-    return configuration().getValueType().getName();
-  }
+    @Override
+    public String getKeyType() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  public boolean isReadThrough() {
-    return configuration().isReadThrough();
-  }
+    @Override
+    public String getValueType() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  public boolean isWriteThrough() {
-    return configuration().isWriteThrough();
-  }
+    @Override
+    public boolean isReadThrough() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  public boolean isStoreByValue() {
-    return configuration().isStoreByValue();
-  }
+    @Override
+    public boolean isWriteThrough() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  public boolean isStatisticsEnabled() {
-    return configuration().isStatisticsEnabled();
-  }
+    @Override
+    public boolean isStoreByValue() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  public boolean isManagementEnabled() {
-    return configuration().isManagementEnabled();
-  }
+    @Override
+    public boolean isStatisticsEnabled() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @SuppressWarnings("unchecked")
-  private CompleteConfiguration<?, ?> configuration() {
-    return cache.getConfiguration(CompleteConfiguration.class);
-  }
+    @Override
+    public boolean isManagementEnabled() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @SuppressWarnings("unchecked")
+    private CompleteConfiguration<?, ?> configuration() {
+        return cache.getConfiguration(CompleteConfiguration.class);
+    }
 }

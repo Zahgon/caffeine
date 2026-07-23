@@ -16,11 +16,8 @@
 package com.github.benmanes.caffeine.jcache.management;
 
 import org.jspecify.annotations.Nullable;
-
 import static java.util.Locale.US;
-
 import java.lang.management.ManagementFactory;
-
 import javax.cache.Cache;
 import javax.cache.CacheException;
 import javax.management.InstanceAlreadyExistsException;
@@ -38,84 +35,43 @@ import javax.management.ObjectName;
  */
 public final class JmxRegistration {
 
-  private JmxRegistration() {}
-
-  /**
-   * Registers the JMX management bean for the cache.
-   *
-   * @param cache the cache to register
-   * @param mxbean the management bean
-   * @param type the mxbean type
-   */
-  public static void registerMxBean(Cache<?, ?> cache, Object mxbean, MBeanType type) {
-    MBeanServer server = ManagementFactory.getPlatformMBeanServer();
-    ObjectName objectName = getObjectName(cache, type);
-    register(server, objectName, mxbean);
-  }
-
-  /**
-   * Unregisters the JMX management bean for the cache.
-   *
-   * @param cache the cache to unregister
-   * @param type the mxbean type
-   */
-  public static void unregisterMxBean(Cache<?, ?> cache, MBeanType type) {
-    MBeanServer server = ManagementFactory.getPlatformMBeanServer();
-    ObjectName objectName = getObjectName(cache, type);
-    unregister(server, objectName);
-  }
-
-  /** Registers the management bean with the given object name. */
-  static void register(MBeanServer server, ObjectName objectName, Object mbean) {
-    try {
-      if (!server.isRegistered(objectName)) {
-        server.registerMBean(mbean, objectName);
-      }
-    } catch (InstanceAlreadyExistsException
-        | MBeanRegistrationException | NotCompliantMBeanException e) {
-      throw new CacheException("Error registering " + objectName, e);
+    private JmxRegistration() {
     }
-  }
 
-  /** Unregisters the management bean(s) with the given object name. */
-  static void unregister(MBeanServer server, ObjectName objectName) {
-    try {
-      for (ObjectName name : server.queryNames(objectName, null)) {
-        server.unregisterMBean(name);
-      }
-    } catch (MBeanRegistrationException | InstanceNotFoundException e) {
-      throw new CacheException("Error unregistering " + objectName, e);
+    public static void registerMxBean(Cache<?, ?> cache, Object mxbean, MBeanType type) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  /** Returns the object name of the management bean. */
-  static ObjectName getObjectName(Cache<?, ?> cache, MBeanType type) {
-    String cacheManagerName = sanitize(cache.getCacheManager().getURI().toString());
-    String cacheName = sanitize(cache.getName());
-    String name = String.format(US, "javax.cache:type=Cache%s,CacheManager=%s,Cache=%s",
-        type.formatted(), cacheManagerName, cacheName);
-    return newObjectName(name);
-  }
-
-  static ObjectName newObjectName(String name) {
-    try {
-      return new ObjectName(name);
-    } catch (MalformedObjectNameException e) {
-      String msg = "Illegal ObjectName: " + name;
-      throw new CacheException(msg, e);
+    public static void unregisterMxBean(Cache<?, ?> cache, MBeanType type) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  /** Returns a sanitized string for use as a management bean name. */
-  static String sanitize(@Nullable String name) {
-    return (name == null) ? "" : name.replaceAll("[,:=\n]", ".");
-  }
-
-  public enum MBeanType {
-    CONFIGURATION, STATISTICS;
-
-    private String formatted() {
-      return Character.toUpperCase(name().charAt(0)) + name().toLowerCase(US).substring(1);
+    static void register(MBeanServer server, ObjectName objectName, Object mbean) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
+
+    static void unregister(MBeanServer server, ObjectName objectName) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    static ObjectName getObjectName(Cache<?, ?> cache, MBeanType type) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    static ObjectName newObjectName(String name) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    static String sanitize(@Nullable String name) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public enum MBeanType {
+
+        CONFIGURATION, STATISTICS;
+
+        private String formatted() {
+            return Character.toUpperCase(name().charAt(0)) + name().toLowerCase(US).substring(1);
+        }
+    }
 }

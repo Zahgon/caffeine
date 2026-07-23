@@ -18,12 +18,9 @@ package com.github.benmanes.caffeine.cache.simulator.policy.sketch.segment;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toUnmodifiableSet;
-
 import java.util.List;
 import java.util.Set;
-
 import org.jspecify.annotations.Nullable;
-
 import com.github.benmanes.caffeine.cache.simulator.BasicSettings;
 import com.github.benmanes.caffeine.cache.simulator.admission.Admission;
 import com.github.benmanes.caffeine.cache.simulator.admission.Admitter;
@@ -34,7 +31,6 @@ import com.github.benmanes.caffeine.cache.simulator.policy.PolicyStats;
 import com.github.benmanes.caffeine.cache.simulator.policy.linked.SegmentedLruPolicy;
 import com.google.common.base.MoreObjects;
 import com.typesafe.config.Config;
-
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 
@@ -46,246 +42,223 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
  */
 @PolicySpec(name = "sketch.FullySegmentedWindowTinyLfu")
 public final class FullySegmentedWindowTinyLfuPolicy implements KeyOnlyPolicy {
-  private final Long2ObjectMap<Node> data;
-  private final PolicyStats policyStats;
-  private final Admitter admitter;
-  private final int maximumSize;
 
-  private final Node headWindowProbation;
-  private final Node headWindowProtected;
-  private final Node headMainProbation;
-  private final Node headMainProtected;
+    private final Long2ObjectMap<Node> data;
 
-  private final int maxWindow;
-  private final int maxWindowProtected;
-  private final int maxMainProtected;
+    private final PolicyStats policyStats;
 
-  private int sizeWindow;
-  private int sizeWindowProtected;
-  private int sizeMainProtected;
+    private final Admitter admitter;
 
-  @SuppressWarnings("Varifier")
-  public FullySegmentedWindowTinyLfuPolicy(
-      double percentMain, FullySegmentedWindowTinyLfuSettings settings) {
-    this.policyStats = new PolicyStats(name() + " (%.0f%%)", 100 * (1.0d - percentMain));
-    this.maximumSize = Math.toIntExact(settings.maximumSize());
-    int maxMain = (int) (maximumSize * percentMain);
-    this.maxWindow = maximumSize - maxMain;
-    this.maxMainProtected = (int) (maxMain * settings.percentMainProtected());
-    this.maxWindowProtected = (int) (maxWindow * settings.percentWindowProtected());
-    this.admitter = Admission.TINYLFU.from(settings.config(), policyStats);
-    this.data = new Long2ObjectOpenHashMap<>();
-    this.headWindowProbation = new Node();
-    this.headWindowProtected = new Node();
-    this.headMainProbation = new Node();
-    this.headMainProtected = new Node();
-  }
+    private final int maximumSize;
 
-  /** Returns all variations of this policy based on the configuration parameters. */
-  public static Set<Policy> policies(Config config) {
-    var settings = new FullySegmentedWindowTinyLfuSettings(config);
-    return settings.percentMain().stream()
-        .map(percentMain -> new FullySegmentedWindowTinyLfuPolicy(percentMain, settings))
-        .collect(toUnmodifiableSet());
-  }
+    private final Node headWindowProbation;
 
-  @Override
-  public PolicyStats stats() {
-    return policyStats;
-  }
+    private final Node headWindowProtected;
 
-  @Override
-  public void record(long key) {
-    @Nullable Node node = data.get(key);
-    policyStats.recordOperation();
-    admitter.record(key);
+    private final Node headMainProbation;
 
-    if (node == null) {
-      onMiss(key);
-      policyStats.recordMiss();
-    } else if (node.status == Status.WINDOW_PROBATION) {
-      onWindowProbationHit(node);
-      policyStats.recordHit();
-    } else if (node.status == Status.WINDOW_PROTECTED) {
-      onWindowProtectedHit(node);
-      policyStats.recordHit();
-    } else if (node.status == Status.MAIN_PROBATION) {
-      onMainProbationHit(node);
-      policyStats.recordHit();
-    } else if (node.status == Status.MAIN_PROTECTED) {
-      onMainProtectedHit(node);
-      policyStats.recordHit();
-    } else {
-      throw new IllegalStateException();
-    }
-  }
+    private final Node headMainProtected;
 
-  /** Adds the entry to the admission window, evicting if necessary. */
-  private void onMiss(long key) {
-    var node = new Node(key, Status.WINDOW_PROBATION);
-    node.appendToTail(headWindowProbation);
-    data.put(key, node);
-    sizeWindow++;
-    evict();
-  }
+    private final int maxWindow;
 
-  /** Promotes the entry to the protected region's MRU position, demoting an entry if necessary. */
-  private void onWindowProbationHit(Node node) {
-    node.remove();
-    node.status = Status.WINDOW_PROTECTED;
-    node.appendToTail(headWindowProtected);
+    private final int maxWindowProtected;
 
-    sizeWindowProtected++;
-    if (sizeWindowProtected > maxWindowProtected) {
-      Node demote = requireNonNull(headWindowProtected.next);
-      demote.remove();
-      demote.status = Status.WINDOW_PROBATION;
-      demote.appendToTail(headWindowProbation);
-      sizeWindowProtected--;
-    }
-  }
+    private final int maxMainProtected;
 
-  /** Moves the entry to the MRU position in the admission window. */
-  private void onWindowProtectedHit(Node node) {
-    node.moveToTail(headWindowProtected);
-  }
+    private int sizeWindow;
 
-  /** Promotes the entry to the protected region's MRU position, demoting an entry if necessary. */
-  private void onMainProbationHit(Node node) {
-    node.remove();
-    node.status = Status.MAIN_PROTECTED;
-    node.appendToTail(headMainProtected);
+    private int sizeWindowProtected;
 
-    sizeMainProtected++;
-    if (sizeMainProtected > maxMainProtected) {
-      Node demote = requireNonNull(headMainProtected.next);
-      demote.remove();
-      demote.status = Status.MAIN_PROBATION;
-      demote.appendToTail(headMainProbation);
-      sizeMainProtected--;
-    }
-  }
+    private int sizeMainProtected;
 
-  /** Moves the entry to the MRU position if it falls outside of the fast-path threshold. */
-  private void onMainProtectedHit(Node node) {
-    node.moveToTail(headMainProtected);
-  }
-
-  /**
-   * Evicts from the admission window into the probation space. If the size exceeds the maximum,
-   * then the admission candidate and probation's victim are evaluated and one is evicted.
-   */
-  private void evict() {
-    if (sizeWindow <= maxWindow) {
-      return;
+    @SuppressWarnings("Varifier")
+    public FullySegmentedWindowTinyLfuPolicy(double percentMain, FullySegmentedWindowTinyLfuSettings settings) {
+        this.policyStats = new PolicyStats(name() + " (%.0f%%)", 100 * (1.0d - percentMain));
+        this.maximumSize = Math.toIntExact(settings.maximumSize());
+        int maxMain = (int) (maximumSize * percentMain);
+        this.maxWindow = maximumSize - maxMain;
+        this.maxMainProtected = (int) (maxMain * settings.percentMainProtected());
+        this.maxWindowProtected = (int) (maxWindow * settings.percentWindowProtected());
+        this.admitter = Admission.TINYLFU.from(settings.config(), policyStats);
+        this.data = new Long2ObjectOpenHashMap<>();
+        this.headWindowProbation = new Node();
+        this.headWindowProtected = new Node();
+        this.headMainProbation = new Node();
+        this.headMainProtected = new Node();
     }
 
-    Node candidate = requireNonNull(headWindowProbation.next);
-
-    sizeWindow--;
-    candidate.remove();
-    candidate.status = Status.MAIN_PROBATION;
-    candidate.appendToTail(headMainProbation);
-
-    if (data.size() > maximumSize) {
-      Node victim = requireNonNull(headMainProbation.next);
-      Node evict = admitter.admit(candidate.key, victim.key) ? victim : candidate;
-      data.remove(evict.key);
-      evict.remove();
-
-      policyStats.recordEviction();
-    }
-  }
-
-  @Override
-  public void finished() {
-    long windowProbationSize = data.values().stream()
-        .filter(n -> n.status == Status.WINDOW_PROBATION).count();
-    long windowProtectedSize = data.values().stream()
-        .filter(n -> n.status == Status.WINDOW_PROTECTED).count();
-    long mainProtectedSize = data.values().stream()
-        .filter(n -> n.status == Status.MAIN_PROTECTED).count();
-
-    checkState(sizeWindow <= maxWindow);
-    checkState(windowProtectedSize == sizeWindowProtected);
-    checkState(sizeWindow == windowProbationSize + sizeWindowProtected);
-
-    checkState(mainProtectedSize == sizeMainProtected);
-    checkState(data.size() <= maximumSize);
-  }
-
-  enum Status {
-    WINDOW_PROBATION, WINDOW_PROTECTED,
-    MAIN_PROBATION, MAIN_PROTECTED
-  }
-
-  /** A node on the double-linked list. */
-  static final class Node {
-    final long key;
-
-    @Nullable Node prev;
-    @Nullable Node next;
-    @Nullable Status status;
-
-    /** Creates a new sentinel node. */
-    public Node() {
-      this.key = Integer.MIN_VALUE;
-      this.prev = this;
-      this.next = this;
-    }
-
-    /** Creates a new, unlinked node. */
-    public Node(long key, Status status) {
-      this.status = status;
-      this.key = key;
-    }
-
-    public void moveToTail(Node head) {
-      remove();
-      appendToTail(head);
-    }
-
-    /** Appends the node to the tail of the list. */
-    public void appendToTail(Node head) {
-      requireNonNull(head.prev);
-      Node tail = head.prev;
-      head.prev = this;
-      tail.next = this;
-      next = head;
-      prev = tail;
-    }
-
-    /** Removes the node from the list. */
-    public void remove() {
-      requireNonNull(prev);
-      requireNonNull(next);
-
-      prev.next = next;
-      next.prev = prev;
-      next = prev = null;
+    public static Set<Policy> policies(Config config) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public String toString() {
-      return MoreObjects.toStringHelper(this)
-          .add("key", key)
-          .add("status", status)
-          .toString();
+    public PolicyStats stats() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  public static final class FullySegmentedWindowTinyLfuSettings extends BasicSettings {
-    public FullySegmentedWindowTinyLfuSettings(Config config) {
-      super(config);
+    @Override
+    public void record(long key) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    public List<Double> percentMain() {
-      return config().getDoubleList("fully-segmented-window-tiny-lfu.percent-main");
+
+    /**
+     * Adds the entry to the admission window, evicting if necessary.
+     */
+    private void onMiss(long key) {
+        var node = new Node(key, Status.WINDOW_PROBATION);
+        node.appendToTail(headWindowProbation);
+        data.put(key, node);
+        sizeWindow++;
+        evict();
     }
-    public double percentMainProtected() {
-      return config().getDouble("fully-segmented-window-tiny-lfu.percent-main-protected");
+
+    /**
+     * Promotes the entry to the protected region's MRU position, demoting an entry if necessary.
+     */
+    private void onWindowProbationHit(Node node) {
+        node.remove();
+        node.status = Status.WINDOW_PROTECTED;
+        node.appendToTail(headWindowProtected);
+        sizeWindowProtected++;
+        if (sizeWindowProtected > maxWindowProtected) {
+            Node demote = requireNonNull(headWindowProtected.next);
+            demote.remove();
+            demote.status = Status.WINDOW_PROBATION;
+            demote.appendToTail(headWindowProbation);
+            sizeWindowProtected--;
+        }
     }
-    public double percentWindowProtected() {
-      return config().getDouble("fully-segmented-window-tiny-lfu.percent-window-protected");
+
+    /**
+     * Moves the entry to the MRU position in the admission window.
+     */
+    private void onWindowProtectedHit(Node node) {
+        node.moveToTail(headWindowProtected);
     }
-  }
+
+    /**
+     * Promotes the entry to the protected region's MRU position, demoting an entry if necessary.
+     */
+    private void onMainProbationHit(Node node) {
+        node.remove();
+        node.status = Status.MAIN_PROTECTED;
+        node.appendToTail(headMainProtected);
+        sizeMainProtected++;
+        if (sizeMainProtected > maxMainProtected) {
+            Node demote = requireNonNull(headMainProtected.next);
+            demote.remove();
+            demote.status = Status.MAIN_PROBATION;
+            demote.appendToTail(headMainProbation);
+            sizeMainProtected--;
+        }
+    }
+
+    /**
+     * Moves the entry to the MRU position if it falls outside of the fast-path threshold.
+     */
+    private void onMainProtectedHit(Node node) {
+        node.moveToTail(headMainProtected);
+    }
+
+    /**
+     * Evicts from the admission window into the probation space. If the size exceeds the maximum,
+     * then the admission candidate and probation's victim are evaluated and one is evicted.
+     */
+    private void evict() {
+        if (sizeWindow <= maxWindow) {
+            return;
+        }
+        Node candidate = requireNonNull(headWindowProbation.next);
+        sizeWindow--;
+        candidate.remove();
+        candidate.status = Status.MAIN_PROBATION;
+        candidate.appendToTail(headMainProbation);
+        if (data.size() > maximumSize) {
+            Node victim = requireNonNull(headMainProbation.next);
+            Node evict = admitter.admit(candidate.key, victim.key) ? victim : candidate;
+            data.remove(evict.key);
+            evict.remove();
+            policyStats.recordEviction();
+        }
+    }
+
+    @Override
+    public void finished() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    enum Status {
+
+        WINDOW_PROBATION, WINDOW_PROTECTED, MAIN_PROBATION, MAIN_PROTECTED
+    }
+
+    /**
+     * A node on the double-linked list.
+     */
+    static final class Node {
+
+        final long key;
+
+        @Nullable
+        Node prev;
+
+        @Nullable
+        Node next;
+
+        @Nullable
+        Status status;
+
+        /**
+         * Creates a new sentinel node.
+         */
+        public Node() {
+            this.key = Integer.MIN_VALUE;
+            this.prev = this;
+            this.next = this;
+        }
+
+        /**
+         * Creates a new, unlinked node.
+         */
+        public Node(long key, Status status) {
+            this.status = status;
+            this.key = key;
+        }
+
+        public void moveToTail(Node head) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public void appendToTail(Node head) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public void remove() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public String toString() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
+
+    public static final class FullySegmentedWindowTinyLfuSettings extends BasicSettings {
+
+        public FullySegmentedWindowTinyLfuSettings(Config config) {
+            super(config);
+        }
+
+        public List<Double> percentMain() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public double percentMainProtected() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public double percentWindowProtected() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
 }

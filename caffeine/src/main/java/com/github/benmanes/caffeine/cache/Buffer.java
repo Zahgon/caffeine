@@ -30,64 +30,84 @@ import java.util.function.Consumer;
  * @author ben.manes@gmail.com (Ben Manes)
  */
 interface Buffer<E> {
-  int FULL = 1;     // if the buffer is full
-  int FAILED = -1;  // if the CAS failed
-  int SUCCESS = 0;  // if added
 
-  /** Returns a no-op implementation. */
-  @SuppressWarnings("unchecked")
-  static <E> Buffer<E> disabled() {
-    return (Buffer<E>) DisabledBuffer.INSTANCE;
-  }
+    // if the buffer is full
+    int FULL = 1;
 
-  /**
-   * Inserts the specified element into this buffer if it is possible to do so immediately without
-   * violating capacity restrictions. The addition is allowed to fail spuriously if multiple
-   * threads insert concurrently.
-   *
-   * @param e the element to add
-   * @return {@code Buffer.SUCCESS}, {@code Buffer.FAILED}, or {@code Buffer.FULL}
-   */
-  int offer(E e);
+    // if the CAS failed
+    int FAILED = -1;
 
-  /**
-   * Drains the buffer, sending each element to the consumer for processing. The caller must ensure
-   * that a consumer has exclusive read access to the buffer.
-   *
-   * @param consumer the action to perform on each element
-   */
-  void drainTo(Consumer<E> consumer);
+    // if added
+    int SUCCESS = 0;
 
-  /**
-   * Returns the number of elements residing in the buffer.
-   *
-   * @return the number of elements in this buffer
-   */
-  default long size() {
-    return writes() - reads();
-  }
+    @SuppressWarnings("unchecked")
+    static <E> Buffer<E> disabled() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  /**
-   * Returns the number of elements that have been read from the buffer.
-   *
-   * @return the number of elements read from this buffer
-   */
-  long reads();
+    /**
+     * Inserts the specified element into this buffer if it is possible to do so immediately without
+     * violating capacity restrictions. The addition is allowed to fail spuriously if multiple
+     * threads insert concurrently.
+     *
+     * @param e the element to add
+     * @return {@code Buffer.SUCCESS}, {@code Buffer.FAILED}, or {@code Buffer.FULL}
+     */
+    int offer(E e);
 
-  /**
-   * Returns the number of elements that have been written to the buffer.
-   *
-   * @return the number of elements written to this buffer
-   */
-  long writes();
+    /**
+     * Drains the buffer, sending each element to the consumer for processing. The caller must ensure
+     * that a consumer has exclusive read access to the buffer.
+     *
+     * @param consumer the action to perform on each element
+     */
+    void drainTo(Consumer<E> consumer);
+
+    default long size() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    /**
+     * Returns the number of elements that have been read from the buffer.
+     *
+     * @return the number of elements read from this buffer
+     */
+    long reads();
+
+    /**
+     * Returns the number of elements that have been written to the buffer.
+     *
+     * @return the number of elements written to this buffer
+     */
+    long writes();
 }
 
 enum DisabledBuffer implements Buffer<Object> {
-  INSTANCE;
 
-  @Override public int offer(Object e) { return Buffer.SUCCESS; }
-  @Override public void drainTo(Consumer<Object> consumer) {}
-  @Override public long size() { return 0; }
-  @Override public long reads() { return 0; }
-  @Override public long writes() { return 0; }
+    INSTANCE;
+
+    @Override
+    public int offer(Object e) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public void drainTo(Consumer<Object> consumer) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public long size() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public long reads() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public long writes() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

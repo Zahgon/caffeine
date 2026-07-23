@@ -19,10 +19,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.hazelcast.config.MaxSizePolicy.ENTRY_COUNT;
 import static java.util.Locale.US;
 import static java.util.stream.Collectors.toUnmodifiableSet;
-
 import java.util.EnumSet;
 import java.util.Set;
-
 import com.github.benmanes.caffeine.cache.simulator.BasicSettings;
 import com.github.benmanes.caffeine.cache.simulator.policy.AccessEvent;
 import com.github.benmanes.caffeine.cache.simulator.policy.Policy;
@@ -49,102 +47,91 @@ import com.typesafe.config.Config;
  */
 @PolicySpec(name = "product.Hazelcast")
 public final class HazelcastPolicy implements Policy {
-  private final NearCache<Long, Boolean> cache;
-  private final PolicyStats policyStats;
-  private final int maximumSize;
 
-  public HazelcastPolicy(HazelcastSettings settings, EvictionPolicy policy) {
-    policyStats = new PolicyStats(name() + " (%s)",
-        CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, policy.name()));
-    maximumSize = Math.toIntExact(settings.maximumSize());
-    var config = new NearCacheConfig()
-        .setSerializeKeys(false)
-        .setInMemoryFormat(InMemoryFormat.OBJECT)
-        .setEvictionConfig(new EvictionConfig()
-            .setMaxSizePolicy(ENTRY_COUNT)
-            .setEvictionPolicy(policy)
-            .setSize(maximumSize));
-    cache = new DefaultNearCache<>("simulation", config, DummySerializationService.INSTANCE,
-        /* scheduler= */ null, getClass().getClassLoader(), /* properties= */ null);
-    cache.initialize();
-  }
+    private final NearCache<Long, Boolean> cache;
 
-  /** Returns all variations of this policy based on the configuration parameters. */
-  public static Set<Policy> policies(Config config) {
-    var settings = new HazelcastSettings(config);
-    return settings.policy().stream()
-        .map(policy -> new HazelcastPolicy(settings, policy))
-        .collect(toUnmodifiableSet());
-  }
+    private final PolicyStats policyStats;
 
-  @Override
-  public void record(AccessEvent event) {
-    Long key = event.longKey();
-    var value = cache.get(key);
-    if (value == null) {
-      cache.put(key, /* keyData= */ null, true, /* valueDate= */ null);
-      policyStats.recordMiss();
-    } else {
-      policyStats.recordHit();
-    }
-  }
+    private final int maximumSize;
 
-  @Override
-  public PolicyStats stats() {
-    return policyStats;
-  }
+    public HazelcastPolicy(HazelcastSettings settings, EvictionPolicy policy) {
+        policyStats = new PolicyStats(name() + " (%s)", CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, policy.name()));
+        maximumSize = Math.toIntExact(settings.maximumSize());
+        var config = new NearCacheConfig().setSerializeKeys(false).setInMemoryFormat(InMemoryFormat.OBJECT).setEvictionConfig(new EvictionConfig().setMaxSizePolicy(ENTRY_COUNT).setEvictionPolicy(policy).setSize(maximumSize));
+        cache = new DefaultNearCache<>("simulation", config, DummySerializationService.INSTANCE, /* scheduler= */
+        null, getClass().getClassLoader(), /* properties= */
+        null);
+        cache.initialize();
+    }
 
-  @Override
-  public void finished() {
-    var stats = cache.getNearCacheStats();
-    cache.destroy();
+    public static Set<Policy> policies(Config config) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-    policyStats.addEvictions(stats.getEvictions());
-    checkState(stats.getOwnedEntryCount() <= maximumSize);
-    checkState(stats.getHits() == policyStats.hitCount());
-    checkState(stats.getMisses() == policyStats.missCount());
-  }
+    @Override
+    public void record(AccessEvent event) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  public static final class HazelcastSettings extends BasicSettings {
-    public HazelcastSettings(Config config) {
-      super(config);
+    @Override
+    public PolicyStats stats() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    public Set<EvictionPolicy> policy() {
-      var policies = EnumSet.noneOf(EvictionPolicy.class);
-      for (var policy : config().getStringList("hazelcast.policy")) {
-        var option = Enums.getIfPresent(EvictionPolicy.class, policy.toUpperCase(US)).toJavaUtil();
-        option.ifPresentOrElse(policies::add, () -> {
-          throw new IllegalArgumentException("Unknown policy: " + policy);
-        });
-      }
-      return policies;
-    }
-  }
 
-  @SuppressWarnings({"rawtypes", "TypeParameterUnusedInFormals", "unchecked"})
-  enum DummySerializationService implements SerializationService {
-    INSTANCE;
+    @Override
+    public void finished() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-    @Override public <B extends Data> B toData(Object obj) {
-      return (B) obj;
+    public static final class HazelcastSettings extends BasicSettings {
+
+        public HazelcastSettings(Config config) {
+            super(config);
+        }
+
+        public Set<EvictionPolicy> policy() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
     }
-    @Override public <B extends Data> B toDataWithSchema(Object obj) {
-      return (B) obj;
+
+    @SuppressWarnings({ "rawtypes", "TypeParameterUnusedInFormals", "unchecked" })
+    enum DummySerializationService implements SerializationService {
+
+        INSTANCE;
+
+        @Override
+        public <B extends Data> B toData(Object obj) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public <B extends Data> B toDataWithSchema(Object obj) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public <B extends Data> B toData(Object obj, PartitioningStrategy strategy) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public <T> T toObject(Object data) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public <T> T toObject(Object data, Class klazz) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public ManagedContext getManagedContext() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public <B extends Data> B trimSchema(Data data) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
     }
-    @Override public <B extends Data> B toData(Object obj, PartitioningStrategy strategy) {
-      return (B) obj;
-    }
-    @Override public <T> T toObject(Object data) {
-      return (T) data;
-    }
-    @Override public <T> T toObject(Object data, Class klazz) {
-      return (T) data;
-    }
-    @Override public ManagedContext getManagedContext() {
-      throw new UnsupportedOperationException();
-    }
-    @Override public <B extends Data> B trimSchema(Data data) {
-      return (B) data;
-    }
-  }
 }

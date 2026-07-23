@@ -26,46 +26,32 @@ import com.typesafe.config.Config;
  * @author ohadey@gmail.com (Ohad Eytan)
  */
 public final class IndicatorClimber implements HillClimber {
-  private final Indicator indicator;
-  private final int cacheSize;
 
-  private double prevPercent;
+    private final Indicator indicator;
 
-  public IndicatorClimber(Config config) {
-    var settings = new HillClimberWindowTinyLfuSettings(config);
-    this.cacheSize = Math.toIntExact(settings.maximumSize());
-    this.prevPercent = 1 - settings.percentMain().getFirst();
-    this.indicator = new Indicator(config);
-  }
+    private final int cacheSize;
 
-  @Override
-  public void onHit(long key, QueueType queue, boolean isFull) {
-    if (isFull) {
-      indicator.record(key);
-    }
-  }
+    private double prevPercent;
 
-  @Override
-  public void onMiss(long key, boolean isFull) {
-    if (isFull) {
-      indicator.record(key);
-    }
-  }
-
-  @Override
-  public Adaptation adapt(double windowSize,
-      double probationSize, double protectedSize, boolean isFull) {
-    if (indicator.getSample() != 50_000) {
-      return Adaptation.hold();
+    public IndicatorClimber(Config config) {
+        var settings = new HillClimberWindowTinyLfuSettings(config);
+        this.cacheSize = Math.toIntExact(settings.maximumSize());
+        this.prevPercent = 1 - settings.percentMain().getFirst();
+        this.indicator = new Indicator(config);
     }
 
-    double newPercent = (indicator.getIndicator() * 80) / 100.0;
-    double oldPercent = prevPercent;
-    prevPercent = newPercent;
-    indicator.reset();
+    @Override
+    public void onHit(long key, QueueType queue, boolean isFull) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-    return (newPercent > oldPercent)
-        ? Adaptation.increaseWindow((int) ((newPercent - oldPercent) * cacheSize))
-        : Adaptation.decreaseWindow((int) ((oldPercent - newPercent) * cacheSize));
-  }
+    @Override
+    public void onMiss(long key, boolean isFull) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public Adaptation adapt(double windowSize, double probationSize, double protectedSize, boolean isFull) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

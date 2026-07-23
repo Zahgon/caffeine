@@ -16,14 +16,12 @@
 package com.github.benmanes.caffeine.cache.simulator;
 
 import static java.util.Locale.US;
-
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.SortedSet;
 import java.util.Stack;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
 import com.github.benmanes.caffeine.cache.simulator.report.csv.CombinedCsvReport;
 import com.github.benmanes.caffeine.cache.simulator.report.csv.PlotCsv;
 import com.github.benmanes.caffeine.cache.simulator.report.csv.PlotCsv.ChartStyle;
@@ -31,7 +29,6 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.typesafe.config.ConfigFactory;
-
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Help;
@@ -55,101 +52,82 @@ import picocli.CommandLine.Option;
  *
  * @author ben.manes@gmail.com (Ben Manes)
  */
-@SuppressWarnings({"NotNullFieldNotInitialized", "unused"})
+@SuppressWarnings({ "NotNullFieldNotInitialized", "unused" })
 @Command(mixinStandardHelpOptions = true)
 public final class Simulate implements Runnable {
-  @Option(names = "--maximumSize", required = true, split = ",",
-      description = "The maximum sizes", preprocessor = LongPreprocessor.class)
-  private SortedSet<Long> maximumSizes;
-  @Option(names = "--metric", required = true, defaultValue = "Hit Rate",
-      description = "The metric being compared")
-  private String metric;
-  @Option(names = "--title", description = "The chart's title", defaultValue = "")
-  private String title;
-  @Option(names = "--theme", required = true, defaultValue = "light",
-      description = "The chart's theme")
-  private Theme theme;
-  @Option(names = "--outputDir", required = true, description = "The destination directory")
-  private Path outputDir;
 
-  @Override
-  public void run() {
-    var baseName = metric.toLowerCase(US).replace(' ', '_');
-    var reports = Maps.toMap(maximumSizes, maximumSize -> {
-      var stopwatch = Stopwatch.createStarted();
-      var report = simulate(baseName, maximumSize);
-      System.out.printf(US, "%,d: Executed in %s%n", maximumSize, stopwatch);
-      return report;
-    });
+    @Option(names = "--maximumSize", required = true, split = ",", description = "The maximum sizes", preprocessor = LongPreprocessor.class)
+    private SortedSet<Long> maximumSizes;
 
-    if (reports.size() == 1) {
-      System.out.printf(US, "Did not generate a chart as only one data point%n");
-      System.out.printf(US, "Wrote report to %s%n", reports.values().iterator().next());
-      return;
+    @Option(names = "--metric", required = true, defaultValue = "Hit Rate", description = "The metric being compared")
+    private String metric;
+
+    @Option(names = "--title", description = "The chart's title", defaultValue = "")
+    private String title;
+
+    @Option(names = "--theme", required = true, defaultValue = "light", description = "The chart's theme")
+    private Theme theme;
+
+    @Option(names = "--outputDir", required = true, description = "The destination directory")
+    private Path outputDir;
+
+    @Override
+    public void run() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
-    var combinedReport = combineReports(baseName, reports);
-    System.out.printf(US, "Wrote combined report to %s%n", combinedReport);
-
-    var chart = generateChart(baseName, combinedReport);
-    System.out.printf(US, "Wrote chart to %s%n", chart);
-  }
-
-  /** Runs the simulation for the given maximumSize and returns the csv report */
-  private Path simulate(String baseName, long maximumSize) {
-    var report = outputDir.resolve(baseName + "_" + maximumSize + ".csv");
-    var config = ConfigFactory.parseMap(Map.of(
-        "caffeine.simulator.report.format", "csv",
-        "caffeine.simulator.maximum-size", maximumSize,
-        "caffeine.simulator.report.output", report.toString()))
-        .withFallback(ConfigFactory.load());
-    var simulator = new Simulator(config);
-    simulator.run();
-    return report;
-  }
-
-  /** Returns a combined report from the individual runs. */
-  private Path combineReports(String baseName, ImmutableMap<Long, Path> inputFiles) {
-    var report = outputDir.resolve(baseName + ".csv");
-    var combiner = new CombinedCsvReport(inputFiles, metric, report);
-    combiner.run();
-    return report;
-  }
-
-  /** Returns the chart rendered from the combined report. */
-  private Path generateChart(String baseName, Path report) {
-    var chart = outputDir.resolve(baseName + ".png");
-    var plotter = new PlotCsv(report, chart, metric, title, theme.style);
-    plotter.run();
-    return chart;
-  }
-
-  static void main(String[] args) {
-    Logger.getLogger("").setLevel(Level.WARNING);
-    new CommandLine(Simulate.class)
-        .setColorScheme(Help.defaultColorScheme(Help.Ansi.ON))
-        .setCommandName(Simulate.class.getSimpleName())
-        .setCaseInsensitiveEnumValuesAllowed(true)
-        .execute(args);
-  }
-
-  @SuppressWarnings("ImmutableEnumChecker")
-  private enum Theme {
-    light(ChartStyle.light()),
-    dark(ChartStyle.dark());
-
-    final ChartStyle style;
-
-    Theme(ChartStyle style) {
-      this.style = style;
+    /**
+     * Runs the simulation for the given maximumSize and returns the csv report
+     */
+    private Path simulate(String baseName, long maximumSize) {
+        var report = outputDir.resolve(baseName + "_" + maximumSize + ".csv");
+        var config = ConfigFactory.parseMap(Map.of("caffeine.simulator.report.format", "csv", "caffeine.simulator.maximum-size", maximumSize, "caffeine.simulator.report.output", report.toString())).withFallback(ConfigFactory.load());
+        var simulator = new Simulator(config);
+        simulator.run();
+        return report;
     }
-  }
 
-  private static final class LongPreprocessor implements IParameterPreprocessor {
-    @Override public boolean preprocess(Stack<String> args,
-        CommandSpec commandSpec, ArgSpec argSpec, Map<String, Object> info) {
-      args.replaceAll(arg -> arg.replace("_", ""));
-      return false;
+    /**
+     * Returns a combined report from the individual runs.
+     */
+    private Path combineReports(String baseName, ImmutableMap<Long, Path> inputFiles) {
+        var report = outputDir.resolve(baseName + ".csv");
+        var combiner = new CombinedCsvReport(inputFiles, metric, report);
+        combiner.run();
+        return report;
     }
-  }
+
+    /**
+     * Returns the chart rendered from the combined report.
+     */
+    private Path generateChart(String baseName, Path report) {
+        var chart = outputDir.resolve(baseName + ".png");
+        var plotter = new PlotCsv(report, chart, metric, title, theme.style);
+        plotter.run();
+        return chart;
+    }
+
+    static void main(String[] args) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @SuppressWarnings("ImmutableEnumChecker")
+    private enum Theme {
+
+        light(ChartStyle.light()), dark(ChartStyle.dark());
+
+        final ChartStyle style;
+
+        Theme(ChartStyle style) {
+            this.style = style;
+        }
+    }
+
+    private static final class LongPreprocessor implements IParameterPreprocessor {
+
+        @Override
+        public boolean preprocess(Stack<String> args, CommandSpec commandSpec, ArgSpec argSpec, Map<String, Object> info) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
 }

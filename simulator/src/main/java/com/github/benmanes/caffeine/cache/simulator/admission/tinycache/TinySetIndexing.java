@@ -35,123 +35,67 @@ import com.google.errorprone.annotations.Var;
  */
 @SuppressWarnings("JavadocLinkAsPlainText")
 final class TinySetIndexing {
-  // for performance - for functions that need to know both the start and the end of the chain.
-  private int chainStart;
-  private int chainEnd;
 
-  public int getChainStart(HashedItem fpaux, long[] chainIndex, long[] isLastIndex) {
-    int requiredChainNumber = rank(chainIndex[fpaux.set], fpaux.chainId);
-    @Var int currentChainNumber = rank(isLastIndex[fpaux.set], requiredChainNumber);
-    @Var int currentOffset = requiredChainNumber;
-    @Var long tempIsLastIndex = isLastIndex[fpaux.set] >>> requiredChainNumber;
-    while (currentChainNumber < requiredChainNumber) {
-      currentChainNumber += ((int) tempIsLastIndex) & 1;
-      currentOffset++;
-      tempIsLastIndex >>>= 1;
-    }
-    return currentOffset;
-  }
+    // for performance - for functions that need to know both the start and the end of the chain.
+    private int chainStart;
 
-  public int rank(long index, int bitNum) {
-    return Long.bitCount(index & ~(-1L << bitNum));
-  }
+    private int chainEnd;
 
-  @CanIgnoreReturnValue
-  public int getChain(HashedItem fpaux, long[] chainIndex, long[] isLastIndex) {
-    int requiredChainNumber = rank(chainIndex[fpaux.set], fpaux.chainId);
-    @Var int currentChainNumber = rank(isLastIndex[fpaux.set], requiredChainNumber);
-    @Var int currentOffset = requiredChainNumber;
-
-    @Var long tempisLastIndex = isLastIndex[fpaux.set] >>> requiredChainNumber;
-    while (currentChainNumber < requiredChainNumber) {
-      currentChainNumber += ((int) tempisLastIndex) & 1;
-      currentOffset++;
-      tempisLastIndex >>>= 1;
-    }
-    setChainStart(currentOffset);
-
-    while ((tempisLastIndex & 1L) == 0) {
-      currentOffset++;
-      tempisLastIndex >>>= 1;
-    }
-    setChainEnd(currentOffset);
-    return currentOffset;
-  }
-
-  @SuppressWarnings("PMD.AvoidReassigningLoopVariables")
-  public int getChainAtOffset(HashedItem fpaux,
-      long[] chainIndex, long[] isLastIndex, int offset) {
-    int nonEmptyChainsToSee = rank(isLastIndex[fpaux.set], offset);
-    @Var int nonEmptyChainSeen = rank(chainIndex[fpaux.set], nonEmptyChainsToSee);
-    for (int i = nonEmptyChainsToSee; i <= 64;) {
-      if (chainExist(chainIndex[fpaux.set], i)
-          && (nonEmptyChainSeen == nonEmptyChainsToSee)) {
-        return i;
-      }
-      i += Math.max(1, nonEmptyChainsToSee - nonEmptyChainSeen);
-      nonEmptyChainSeen = rank(chainIndex[fpaux.set], i);
-    }
-    throw new IllegalStateException("Cannot choose victim!");
-  }
-
-  public boolean chainExist(long chainIndex, int chainId) {
-    return (chainIndex | (1L << chainId)) == chainIndex;
-  }
-
-  public int addItem(HashedItem fpaux, long[] chainIndex, long[] lastIndex) {
-    int offset = getChainStart(fpaux, chainIndex, lastIndex);
-    long mask = 1L << fpaux.chainId;
-    lastIndex[fpaux.set] = extendZero(lastIndex[fpaux.set], offset);
-
-    // if the item is new...
-    if ((mask | chainIndex[fpaux.set]) != chainIndex[fpaux.set]) {
-      // add new chain to IO.
-      chainIndex[fpaux.set] |= mask;
-      // mark item as last in isLastIndex.
-      lastIndex[fpaux.set] |= (1L << offset);
+    public int getChainStart(HashedItem fpaux, long[] chainIndex, long[] isLastIndex) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
-    return offset;
-  }
+    public int rank(long index, int bitNum) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @SuppressWarnings("UnnecessaryParentheses")
-  private static long extendZero(long isLastIndex, int offset) {
-    long constantPartMask = (1L << offset) - 1;
-    return (isLastIndex & constantPartMask)
-        | ((isLastIndex << 1L)
-        & (~(constantPartMask))
-        & (~(1L << offset)));
-  }
+    @CanIgnoreReturnValue
+    public int getChain(HashedItem fpaux, long[] chainIndex, long[] isLastIndex) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @SuppressWarnings("UnnecessaryParentheses")
-  private static long shrinkOffset(long isLastIndex, int offset) {
-    long conMask = ((1L << offset) - 1);
-    return (isLastIndex & conMask) | (((~conMask) & isLastIndex) >>> 1);
-  }
+    @SuppressWarnings("PMD.AvoidReassigningLoopVariables")
+    public int getChainAtOffset(HashedItem fpaux, long[] chainIndex, long[] isLastIndex, int offset) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  public void removeItem(HashedItem fpaux, long[] chainIndex, long[] isLastIndex) {
-    int chainStart = getChainStart(fpaux, chainIndex, isLastIndex);
-    // avoid an if command: either update chainIndex to the new state or keep it the way it is.
-    chainIndex[fpaux.set] = (isLastIndex[fpaux.set] & (1L << chainStart)) == 0L
-        ? chainIndex[fpaux.set]
-        : chainIndex[fpaux.set] & ~(1L << fpaux.chainId);
-    // update isLastIndex.
-    isLastIndex[fpaux.set] = shrinkOffset(isLastIndex[fpaux.set], chainStart);
-  }
+    public boolean chainExist(long chainIndex, int chainId) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  public int getChainStart() {
-    return chainStart;
-  }
+    public int addItem(HashedItem fpaux, long[] chainIndex, long[] lastIndex) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  public void setChainStart(int chainStart) {
-    this.chainStart = chainStart;
-  }
+    @SuppressWarnings("UnnecessaryParentheses")
+    private static long extendZero(long isLastIndex, int offset) {
+        long constantPartMask = (1L << offset) - 1;
+        return (isLastIndex & constantPartMask) | ((isLastIndex << 1L) & (~(constantPartMask)) & (~(1L << offset)));
+    }
 
-  public int getChainEnd() {
-    return chainEnd;
-  }
+    @SuppressWarnings("UnnecessaryParentheses")
+    private static long shrinkOffset(long isLastIndex, int offset) {
+        long conMask = ((1L << offset) - 1);
+        return (isLastIndex & conMask) | (((~conMask) & isLastIndex) >>> 1);
+    }
 
-  public void setChainEnd(int chainEnd) {
-    this.chainEnd = chainEnd;
-  }
+    public void removeItem(HashedItem fpaux, long[] chainIndex, long[] isLastIndex) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public int getChainStart() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public void setChainStart(int chainStart) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public int getChainEnd() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public void setChainEnd(int chainEnd) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

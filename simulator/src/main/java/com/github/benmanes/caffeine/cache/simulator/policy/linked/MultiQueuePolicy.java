@@ -17,11 +17,8 @@ package com.github.benmanes.caffeine.cache.simulator.policy.linked;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
-
 import java.util.Arrays;
-
 import org.jspecify.annotations.Nullable;
-
 import com.github.benmanes.caffeine.cache.simulator.BasicSettings;
 import com.github.benmanes.caffeine.cache.simulator.policy.Policy.KeyOnlyPolicy;
 import com.github.benmanes.caffeine.cache.simulator.policy.Policy.PolicySpec;
@@ -29,7 +26,6 @@ import com.github.benmanes.caffeine.cache.simulator.policy.PolicyStats;
 import com.google.common.base.MoreObjects;
 import com.google.errorprone.annotations.Var;
 import com.typesafe.config.Config;
-
 import it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
@@ -54,173 +50,146 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectSortedMap;
  */
 @PolicySpec(name = "linked.MultiQueue")
 public final class MultiQueuePolicy implements KeyOnlyPolicy {
-  private final Long2ObjectSortedMap<Node> out;
-  private final Long2ObjectMap<Node> data;
-  private final PolicyStats policyStats;
-  private final long[] threshold;
-  private final int maximumSize;
-  private final long lifetime;
-  private final Node[] headQ;
-  private final int maxOut;
 
-  private long currentTime;
+    private final Long2ObjectSortedMap<Node> out;
 
-  public MultiQueuePolicy(Config config) {
-    var settings = new MultiQueueSettings(config);
-    maximumSize = Math.toIntExact(settings.maximumSize());
-    threshold = new long[settings.numberOfQueues()];
-    headQ = new Node[settings.numberOfQueues()];
-    out = new Long2ObjectLinkedOpenHashMap<>();
-    policyStats = new PolicyStats(name());
-    data = new Long2ObjectOpenHashMap<>();
-    lifetime = settings.lifetime();
+    private final Long2ObjectMap<Node> data;
 
-    Arrays.setAll(headQ, Node::sentinel);
-    Arrays.setAll(threshold, i -> 1L << i);
-    maxOut = (int) (maximumSize * settings.percentOut());
-  }
+    private final PolicyStats policyStats;
 
-  @Override
-  public void record(long key) {
-    @Var @Nullable Node node = data.get(key);
-    policyStats.recordOperation();
-    if (node == null) {
-      policyStats.recordMiss();
-      node = out.remove(key);
-      if (node == null) {
-        node = new Node(key);
-      }
-      data.put(key, node);
-      if (data.size() > maximumSize) {
-        policyStats.recordEviction();
-        evict();
-      }
-    } else {
-      policyStats.recordHit();
-      node.remove();
-    }
-    node.reference++;
-    node.queueIndex = queueIndexFor(node);
-    node.appendToTail(headQ[node.queueIndex]);
-    node.expireTime = currentTime + lifetime;
-    adjust();
-  }
+    private final long[] threshold;
 
-  private void adjust() {
-    currentTime++;
-    for (int i = 1; i < headQ.length; i++) {
-      Node node = requireNonNull(headQ[i].next);
-      requireNonNull(node.next);
-      if (node.next.expireTime < currentTime) {
-        node.remove();
-        node.queueIndex = (i - 1);
-        node.appendToTail(headQ[node.queueIndex]);
-        node.expireTime = currentTime + lifetime;
-      }
-    }
-  }
+    private final int maximumSize;
 
-  private int queueIndexFor(Node node) {
-    for (int i = threshold.length - 1; i >= 0; i--) {
-      if (node.reference >= threshold[i]) {
-        return i;
-      }
-    }
-    throw new IllegalStateException();
-  }
+    private final long lifetime;
 
-  private void evict() {
-    @Var Node victim = null;
-    for (Node head : headQ) {
-      if (head.next != head) {
-        victim = head.next;
-        break;
-      }
-    }
-    if (victim == null) {
-      return;
-    }
+    private final Node[] headQ;
 
-    victim.remove();
-    data.remove(victim.key);
-    out.put(victim.key, victim);
-    if (out.size() > maxOut) {
-      out.remove(out.firstLongKey());
-    }
-  }
+    private final int maxOut;
 
-  @Override
-  public PolicyStats stats() {
-    return policyStats;
-  }
+    private long currentTime;
 
-  static final class Node {
-    final long key;
-
-    @Nullable Node prev;
-    @Nullable Node next;
-
-    int reference;
-    int queueIndex;
-    long expireTime;
-
-    Node(long key) {
-      this.key = key;
-    }
-
-    static Node sentinel(int queueIndex) {
-      var node = new Node(Long.MIN_VALUE);
-      node.expireTime = Long.MAX_VALUE;
-      node.queueIndex = queueIndex;
-      node.prev = node;
-      node.next = node;
-      return node;
-    }
-
-    /** Appends the node to the tail of the list. */
-    public void appendToTail(Node head) {
-      Node tail = requireNonNull(head.prev);
-      head.prev = this;
-      tail.next = this;
-      next = head;
-      prev = tail;
-    }
-
-    /** Removes the node from the list. */
-    public void remove() {
-      requireNonNull(prev);
-      requireNonNull(next);
-
-      queueIndex = -1;
-      prev.next = next;
-      next.prev = prev;
-      prev = next = null;
+    public MultiQueuePolicy(Config config) {
+        var settings = new MultiQueueSettings(config);
+        maximumSize = Math.toIntExact(settings.maximumSize());
+        threshold = new long[settings.numberOfQueues()];
+        headQ = new Node[settings.numberOfQueues()];
+        out = new Long2ObjectLinkedOpenHashMap<>();
+        policyStats = new PolicyStats(name());
+        data = new Long2ObjectOpenHashMap<>();
+        lifetime = settings.lifetime();
+        Arrays.setAll(headQ, Node::sentinel);
+        Arrays.setAll(threshold, i -> 1L << i);
+        maxOut = (int) (maximumSize * settings.percentOut());
     }
 
     @Override
-    public String toString() {
-      return MoreObjects.toStringHelper(this)
-          .add("key", key)
-          .add("references", reference)
-          .toString();
+    public void record(long key) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  static final class MultiQueueSettings extends BasicSettings {
-    public MultiQueueSettings(Config config) {
-      super(config);
+    private void adjust() {
+        currentTime++;
+        for (int i = 1; i < headQ.length; i++) {
+            Node node = requireNonNull(headQ[i].next);
+            requireNonNull(node.next);
+            if (node.next.expireTime < currentTime) {
+                node.remove();
+                node.queueIndex = (i - 1);
+                node.appendToTail(headQ[node.queueIndex]);
+                node.expireTime = currentTime + lifetime;
+            }
+        }
     }
-    public int lifetime() {
-      return config().getInt("multi-queue.lifetime");
+
+    private int queueIndexFor(Node node) {
+        for (int i = threshold.length - 1; i >= 0; i--) {
+            if (node.reference >= threshold[i]) {
+                return i;
+            }
+        }
+        throw new IllegalStateException();
     }
-    public int numberOfQueues() {
-      int queues = config().getInt("multi-queue.num-queues");
-      checkArgument(queues > 0, "Must have one or more queues");
-      checkArgument(queues <= 62, "May not have more than 62 queues");
-      return queues;
+
+    private void evict() {
+        @Var
+        Node victim = null;
+        for (Node head : headQ) {
+            if (head.next != head) {
+                victim = head.next;
+                break;
+            }
+        }
+        if (victim == null) {
+            return;
+        }
+        victim.remove();
+        data.remove(victim.key);
+        out.put(victim.key, victim);
+        if (out.size() > maxOut) {
+            out.remove(out.firstLongKey());
+        }
     }
-    public double percentOut() {
-      return config().getDouble("multi-queue.percent-out");
+
+    @Override
+    public PolicyStats stats() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
+
+    static final class Node {
+
+        final long key;
+
+        @Nullable
+        Node prev;
+
+        @Nullable
+        Node next;
+
+        int reference;
+
+        int queueIndex;
+
+        long expireTime;
+
+        Node(long key) {
+            this.key = key;
+        }
+
+        static Node sentinel(int queueIndex) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public void appendToTail(Node head) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public void remove() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public String toString() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
+
+    static final class MultiQueueSettings extends BasicSettings {
+
+        public MultiQueueSettings(Config config) {
+            super(config);
+        }
+
+        public int lifetime() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public int numberOfQueues() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public double percentOut() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
 }

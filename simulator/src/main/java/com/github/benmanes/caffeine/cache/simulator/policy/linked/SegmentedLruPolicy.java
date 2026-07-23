@@ -16,11 +16,8 @@
 package com.github.benmanes.caffeine.cache.simulator.policy.linked;
 
 import static java.util.stream.Collectors.toUnmodifiableSet;
-
 import java.util.Set;
-
 import org.jspecify.annotations.Nullable;
-
 import com.github.benmanes.caffeine.cache.simulator.BasicSettings;
 import com.github.benmanes.caffeine.cache.simulator.admission.Admission;
 import com.github.benmanes.caffeine.cache.simulator.admission.Admitter;
@@ -30,7 +27,6 @@ import com.github.benmanes.caffeine.cache.simulator.policy.Policy.PolicySpec;
 import com.github.benmanes.caffeine.cache.simulator.policy.PolicyStats;
 import com.google.common.base.MoreObjects;
 import com.typesafe.config.Config;
-
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 
@@ -56,172 +52,151 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
  */
 @PolicySpec(name = "linked.SegmentedLru")
 public final class SegmentedLruPolicy implements KeyOnlyPolicy {
-  static final Node UNLINKED = new Node();
 
-  final Long2ObjectMap<Node> data;
-  final PolicyStats policyStats;
-  final Node headProtected;
-  final Node headProbation;
-  final Admitter admitter;
-  final int maxProtected;
-  final int maximumSize;
+    static final Node UNLINKED = new Node();
 
-  int sizeProtected;
+    final Long2ObjectMap<Node> data;
 
-  public SegmentedLruPolicy(Admission admission, Config config) {
-    this.policyStats = new PolicyStats(admission.format(name()));
-    this.admitter = admission.from(config, policyStats);
-    var settings = new SegmentedLruSettings(config);
+    final PolicyStats policyStats;
 
-    this.headProtected = new Node();
-    this.headProbation = new Node();
-    this.data = new Long2ObjectOpenHashMap<>();
-    this.maximumSize = Math.toIntExact(settings.maximumSize());
-    this.maxProtected = (int) (maximumSize * settings.percentProtected());
-  }
+    final Node headProtected;
 
-  /** Returns all variations of this policy based on the configuration parameters. */
-  public static Set<Policy> policies(Config config) {
-    var settings = new BasicSettings(config);
-    return settings.admission().stream().map(admission ->
-      new SegmentedLruPolicy(admission, config)
-    ).collect(toUnmodifiableSet());
-  }
+    final Node headProbation;
 
-  @Override
-  public void record(long key) {
-    @Nullable Node node = data.get(key);
-    policyStats.recordOperation();
-    admitter.record(key);
-    if (node == null) {
-      onMiss(key);
-    } else {
-      onHit(node);
-    }
-  }
+    final Admitter admitter;
 
-  private void onHit(Node node) {
-    if (node.type == QueueType.PROTECTED) {
-      node.moveToTail(headProtected);
-    } else {
-      sizeProtected++;
-      if (sizeProtected > maxProtected) {
-        Node demote = headProtected.next;
-        demote.remove();
-        demote.type = QueueType.PROBATION;
-        demote.appendToTail(headProbation);
-        sizeProtected--;
-      }
-      node.remove();
-      node.type = QueueType.PROTECTED;
-      node.appendToTail(headProtected);
-    }
-    policyStats.recordHit();
-  }
+    final int maxProtected;
 
-  private void onMiss(long key) {
-    var node = new Node(key);
-    data.put(key, node);
-    policyStats.recordMiss();
-    node.appendToTail(headProbation);
-    node.type = QueueType.PROBATION;
-    evict(node);
-  }
+    final int maximumSize;
 
-  private void evict(Node candidate) {
-    if (data.size() > maximumSize) {
-      Node victim = (maxProtected == 0)
-          ? headProtected.next // degrade to LRU
-          : headProbation.next;
-      policyStats.recordEviction();
+    int sizeProtected;
 
-      boolean admit = admitter.admit(candidate.key, victim.key);
-      if (admit) {
-        evictEntry(victim);
-      } else {
-        evictEntry(candidate);
-      }
-    }
-  }
-
-  private void evictEntry(Node node) {
-    data.remove(node.key);
-    node.remove();
-  }
-
-  @Override
-  public PolicyStats stats() {
-    return policyStats;
-  }
-
-  enum QueueType {
-    PROTECTED,
-    PROBATION,
-  }
-
-  static final class Node {
-    final long key;
-
-    Node prev;
-    Node next;
-    @Nullable QueueType type;
-
-    Node() {
-      this.key = Long.MIN_VALUE;
-      this.prev = this;
-      this.next = this;
+    public SegmentedLruPolicy(Admission admission, Config config) {
+        this.policyStats = new PolicyStats(admission.format(name()));
+        this.admitter = admission.from(config, policyStats);
+        var settings = new SegmentedLruSettings(config);
+        this.headProtected = new Node();
+        this.headProbation = new Node();
+        this.data = new Long2ObjectOpenHashMap<>();
+        this.maximumSize = Math.toIntExact(settings.maximumSize());
+        this.maxProtected = (int) (maximumSize * settings.percentProtected());
     }
 
-    Node(long key) {
-      this.key = key;
-      this.prev = UNLINKED;
-      this.next = UNLINKED;
-    }
-
-    /** Appends the node to the tail of the list. */
-    public void appendToTail(Node head) {
-      Node tail = head.prev;
-      head.prev = this;
-      tail.next = this;
-      next = head;
-      prev = tail;
-    }
-
-    /** Moves the node to the tail. */
-    public void moveToTail(Node head) {
-      // unlink
-      prev.next = next;
-      next.prev = prev;
-
-      // link
-      next = head;
-      prev = head.prev;
-      head.prev = this;
-      prev.next = this;
-    }
-
-    /** Removes the node from the list. */
-    public void remove() {
-      prev.next = next;
-      next.prev = prev;
-      prev = next = UNLINKED; // mark as unlinked
+    public static Set<Policy> policies(Config config) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public String toString() {
-      return MoreObjects.toStringHelper(this)
-          .add("key", key)
-          .add("type", type)
-          .toString();
+    public void record(long key) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  static final class SegmentedLruSettings extends BasicSettings {
-    public SegmentedLruSettings(Config config) {
-      super(config);
+    private void onHit(Node node) {
+        if (node.type == QueueType.PROTECTED) {
+            node.moveToTail(headProtected);
+        } else {
+            sizeProtected++;
+            if (sizeProtected > maxProtected) {
+                Node demote = headProtected.next;
+                demote.remove();
+                demote.type = QueueType.PROBATION;
+                demote.appendToTail(headProbation);
+                sizeProtected--;
+            }
+            node.remove();
+            node.type = QueueType.PROTECTED;
+            node.appendToTail(headProtected);
+        }
+        policyStats.recordHit();
     }
-    public double percentProtected() {
-      return config().getDouble("segmented-lru.percent-protected");
+
+    private void onMiss(long key) {
+        var node = new Node(key);
+        data.put(key, node);
+        policyStats.recordMiss();
+        node.appendToTail(headProbation);
+        node.type = QueueType.PROBATION;
+        evict(node);
     }
-  }
+
+    private void evict(Node candidate) {
+        if (data.size() > maximumSize) {
+            Node victim = (maxProtected == 0) ? // degrade to LRU
+            headProtected.next : headProbation.next;
+            policyStats.recordEviction();
+            boolean admit = admitter.admit(candidate.key, victim.key);
+            if (admit) {
+                evictEntry(victim);
+            } else {
+                evictEntry(candidate);
+            }
+        }
+    }
+
+    private void evictEntry(Node node) {
+        data.remove(node.key);
+        node.remove();
+    }
+
+    @Override
+    public PolicyStats stats() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    enum QueueType {
+
+        PROTECTED, PROBATION
+    }
+
+    static final class Node {
+
+        final long key;
+
+        Node prev;
+
+        Node next;
+
+        @Nullable
+        QueueType type;
+
+        Node() {
+            this.key = Long.MIN_VALUE;
+            this.prev = this;
+            this.next = this;
+        }
+
+        Node(long key) {
+            this.key = key;
+            this.prev = UNLINKED;
+            this.next = UNLINKED;
+        }
+
+        public void appendToTail(Node head) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public void moveToTail(Node head) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public void remove() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public String toString() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
+
+    static final class SegmentedLruSettings extends BasicSettings {
+
+        public SegmentedLruSettings(Config config) {
+            super(config);
+        }
+
+        public double percentProtected() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
 }

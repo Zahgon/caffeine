@@ -17,7 +17,6 @@ package com.github.benmanes.caffeine.cache.simulator.parser.baleen;
 
 import java.math.RoundingMode;
 import java.util.stream.LongStream;
-
 import com.github.benmanes.caffeine.cache.simulator.parser.TextTraceReader;
 import com.github.benmanes.caffeine.cache.simulator.parser.TraceReader.KeyOnlyTraceReader;
 import com.google.common.math.IntMath;
@@ -29,32 +28,19 @@ import com.google.common.math.IntMath;
  * @author ben.manes@gmail.com (Ben Manes)
  */
 public final class BaleenTraceReader extends TextTraceReader implements KeyOnlyTraceReader {
-  private static final int SEGMENT_SIZE = 128 * 1024;
 
-  public BaleenTraceReader(String filePath) {
-    super(filePath);
-  }
+    private static final int SEGMENT_SIZE = 128 * 1024;
 
-  @Override
-  public LongStream keys() {
-    return lines()
-        .dropWhile(line -> line.startsWith("#"))
-        .map(line -> line.split(" ", 6))
-        .filter(line -> isRead(line[4].charAt(0)))
-        .flatMapToLong(line -> {
-          long block = Long.parseLong(line[0]);
-          long byteOffset = Long.parseLong(line[1]);
-          int size = Integer.parseInt(line[2]);
+    public BaleenTraceReader(String filePath) {
+        super(filePath);
+    }
 
-          int startSegment = Math.toIntExact(byteOffset / SEGMENT_SIZE);
-          int sequence = IntMath.divide(size, SEGMENT_SIZE, RoundingMode.UP);
+    @Override
+    public LongStream keys() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-          long startKey = (((long) Long.hashCode(block)) << 32) | startSegment;
-          return LongStream.range(startKey, startKey + sequence);
-        });
-  }
-
-  private static boolean isRead(char operation) {
-    return (operation == '1') || (operation == '2') || (operation == '5');
-  }
+    private static boolean isRead(char operation) {
+        return (operation == '1') || (operation == '2') || (operation == '5');
+    }
 }

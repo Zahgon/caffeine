@@ -16,13 +16,10 @@
 package com.github.benmanes.caffeine.cache.simulator.policy;
 
 import static java.util.Objects.requireNonNull;
-
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Semaphore;
-
 import org.jspecify.annotations.Nullable;
-
 import com.github.benmanes.caffeine.cache.simulator.BasicSettings;
 
 /**
@@ -31,108 +28,98 @@ import com.github.benmanes.caffeine.cache.simulator.BasicSettings;
  * @author ben.manes@gmail.com (Ben Manes)
  */
 public final class PolicyActor {
-  private final CompletableFuture<@Nullable Void> completed;
-  private final Semaphore semaphore;
-  private final Policy policy;
-  private final Thread parent;
 
-  private CompletableFuture<@Nullable Void> future;
+    private final CompletableFuture<@Nullable Void> completed;
 
-  /**
-   * Creates an actor that executes the policy actions asynchronously over a buffered channel.
-   *
-   * @param parent the supervisor to interrupt if the policy fails
-   * @param policy the cache policy being simulated
-   * @param settings the simulation settings
-   */
-  public PolicyActor(Thread parent, Policy policy, BasicSettings settings) {
-    this.semaphore = new Semaphore(settings.actor().mailboxSize());
-    this.future = CompletableFuture.completedFuture(null);
-    this.completed = new CompletableFuture<>();
-    this.policy = requireNonNull(policy);
-    this.parent = requireNonNull(parent);
-  }
+    private final Semaphore semaphore;
 
-  /** Sends the access events for async processing and blocks until accepted into the mailbox. */
-  public void send(List<AccessEvent> events) {
-    submit(new Execute(events));
-  }
+    private final Policy policy;
 
-  /** Sends a shutdown signal after the pending messages are completed. */
-  public void finish() {
-    submit(new Finish());
-  }
+    private final Thread parent;
 
-  /** Return the future that signals the policy's completion. */
-  public CompletableFuture<@Nullable Void> completed() {
-    return completed;
-  }
+    private CompletableFuture<@Nullable Void> future;
 
-  /** Submits the command to the mailbox and blocks until accepted. */
-  @SuppressWarnings("NullAway")
-  private void submit(Command command) {
-    try {
-      semaphore.acquire();
-      future = future.thenRunAsync(command);
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      throw new IllegalStateException(e);
+    /**
+     * Creates an actor that executes the policy actions asynchronously over a buffered channel.
+     *
+     * @param parent the supervisor to interrupt if the policy fails
+     * @param policy the cache policy being simulated
+     * @param settings the simulation settings
+     */
+    public PolicyActor(Thread parent, Policy policy, BasicSettings settings) {
+        this.semaphore = new Semaphore(settings.actor().mailboxSize());
+        this.future = CompletableFuture.completedFuture(null);
+        this.completed = new CompletableFuture<>();
+        this.policy = requireNonNull(policy);
+        this.parent = requireNonNull(parent);
     }
-  }
 
-  /** Returns the cache efficiency statistics. */
-  public PolicyStats stats() {
-    return policy.stats();
-  }
-
-  /** A command to process the access events. */
-  private final class Execute extends Command {
-    final List<AccessEvent> events;
-
-    Execute(List<AccessEvent> events) {
-      this.events = requireNonNull(events);
+    public void send(List<AccessEvent> events) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    @Override public void execute() {
-      policy.stats().stopwatch().start();
-      for (AccessEvent event : events) {
-        long priorMisses = policy.stats().missCount();
-        long priorHits = policy.stats().hitCount();
-        policy.record(event);
 
-        if (policy.stats().hitCount() > priorHits) {
-          policy.stats().recordHitPenalty(event.hitPenalty());
-        } else if (policy.stats().missCount() > priorMisses) {
-          policy.stats().recordMissPenalty(event.missPenalty());
+    public void finish() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public CompletableFuture<@Nullable Void> completed() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    /**
+     * Submits the command to the mailbox and blocks until accepted.
+     */
+    @SuppressWarnings("NullAway")
+    private void submit(Command command) {
+        try {
+            semaphore.acquire();
+            future = future.thenRunAsync(command);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(e);
         }
-      }
-      policy.stats().stopwatch().stop();
     }
-  }
 
-  /** A command to shut down the policy and finalize the statistics. */
-  private final class Finish extends Command {
-    @Override public void execute() {
-      policy.finished();
-      completed.complete(null);
+    public PolicyStats stats() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  private abstract class Command implements Runnable {
-    @SuppressWarnings("Interruption")
-    @Override public final void run() {
-      var name = Thread.currentThread().getName();
-      Thread.currentThread().setName(policy.getClass().getSimpleName());
-      try {
-        execute();
-      } catch (Throwable t) {
-        completed.completeExceptionally(t);
-        parent.interrupt();
-        throw t;
-      } finally {
-        semaphore.release();
-        Thread.currentThread().setName(name);
-      }
+    /**
+     * A command to process the access events.
+     */
+    private final class Execute extends Command {
+
+        final List<AccessEvent> events;
+
+        Execute(List<AccessEvent> events) {
+            this.events = requireNonNull(events);
+        }
+
+        @Override
+        public void execute() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
     }
-    abstract void execute();
-  }
+
+    /**
+     * A command to shut down the policy and finalize the statistics.
+     */
+    private final class Finish extends Command {
+
+        @Override
+        public void execute() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
+
+    private abstract class Command implements Runnable {
+
+        @SuppressWarnings("Interruption")
+        @Override
+        public final void run() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        abstract void execute();
+    }
 }

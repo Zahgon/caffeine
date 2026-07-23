@@ -28,120 +28,76 @@ import com.typesafe.config.Config;
  * @author ben.manes@gmail.com (Ben Manes)
  */
 public final class ClimberResetCountMin4 extends CountMin4 {
-  static final long ONE_MASK = 0x1111111111111111L;
 
-  final Membership doorkeeper;
+    static final long ONE_MASK = 0x1111111111111111L;
 
-  int additions;
-  int period;
-  int prevMisses; // misses in previous interval
-  int misses; // misses in this interval
-  int direction = 1; // are we increasing the 'step size' or decreasing it
-  int eventsToCount; // events yet to count before we make a decision.
+    final Membership doorkeeper;
 
-  public ClimberResetCountMin4(Config config) {
-    super(config);
-    var settings = new BasicSettings(config);
-    doorkeeper = settings.tinyLfu().countMin4().periodic().doorkeeper().enabled()
-        ? settings.membership().filter().create(config)
-        : Membership.disabled();
-  }
+    int additions;
 
-  @Override
-  protected void ensureCapacity(long maximumSize) {
-    super.ensureCapacity(maximumSize);
-    period = (maximumSize == 0) ? 10 : (10 * table.length);
-    if (period <= 0) {
-      period = Integer.MAX_VALUE;
-    }
-    eventsToCount = period;
-  }
+    int period;
 
-  @Override
-  public int frequency(long e) {
-    @Var int count = super.frequency(e);
-    if (doorkeeper.mightContain(e)) {
-      count++;
-    }
-    return Math.min(count, 15);
-  }
+    // misses in previous interval
+    int prevMisses;
 
-  @Override
-  public void increment(long e) {
-    eventsToCount--;
-    if (!doorkeeper.put(e)) {
-      super.increment(e);
-    }
-  }
+    // misses in this interval
+    int misses;
 
-  /**
-   * Reduces every counter by half of its original value. To reduce the truncation
-   * error, the sample is reduced by the number of counters with an odd value.
-   */
-  @Override
-  protected void tryReset(boolean added) {
-    additions += step;
+    // are we increasing the 'step size' or decreasing it
+    int direction = 1;
 
-    if (!added) {
-      return;
+    // events yet to count before we make a decision.
+    int eventsToCount;
+
+    public ClimberResetCountMin4(Config config) {
+        super(config);
+        var settings = new BasicSettings(config);
+        doorkeeper = settings.tinyLfu().countMin4().periodic().doorkeeper().enabled() ? settings.membership().filter().create(config) : Membership.disabled();
     }
 
-    if (additions < period) {
-      return;
+    @Override
+    protected void ensureCapacity(long maximumSize) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
-    @Var int count = 0;
-    for (int i = 0; i < table.length; i++) {
-      count += Long.bitCount(table[i] & ONE_MASK);
-      table[i] = (table[i] >>> 1) & RESET_MASK;
+    @Override
+    public int frequency(long e) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    additions = (additions >>> 1) - (count >>> 2);
-    doorkeeper.clear();
-  }
 
-  @Override
-  public void reportMiss() {
-    // Each time there is a miss, TinyLFU will invoke the reportMiss function to allow us to make a
-    // decision
-    misses++;
-
-    if (eventsToCount <= 0) {
-      eventsToCount = period;
-
-      // If this configuration is worse than the previous one, switch directions
-      if (misses > prevMisses) {
-        direction = -1 * direction;
-      }
-
-      step -= direction;
-      prevMisses = misses;
-      misses = 0;
-      if (step < 1) {
-        step = 1;
-      } else if (step > 15) {
-        step = 15;
-      }
+    @Override
+    public void increment(long e) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  @SuppressWarnings("unused")
-  public int getStep() {
-    return step;
-  }
+    @Override
+    protected void tryReset(boolean added) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  public void setStep(int x) {
-    this.step = Math.max(1, Math.min(15, x));
-  }
+    @Override
+    public void reportMiss() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  public int getEventsToCount() {
-    return eventsToCount;
-  }
+    @SuppressWarnings("unused")
+    public int getStep() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  public void resetEventsToCount() {
-    eventsToCount = period;
-  }
+    public void setStep(int x) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  public int getPeriod() {
-    return period;
-  }
+    public int getEventsToCount() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public void resetEventsToCount() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public int getPeriod() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

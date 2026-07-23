@@ -19,11 +19,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.toImmutableEnumSet;
 import static java.util.Locale.US;
 import static java.util.Objects.requireNonNull;
-
 import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Stream;
-
 import com.github.benmanes.caffeine.cache.simulator.parser.adapt_size.AdaptSizeTraceReader;
 import com.github.benmanes.caffeine.cache.simulator.parser.address.AddressTraceReader;
 import com.github.benmanes.caffeine.cache.simulator.parser.address.penalties.AddressPenaltiesTraceReader;
@@ -68,74 +66,49 @@ import com.google.common.collect.Iterables;
  */
 @SuppressWarnings("ImmutableEnumChecker")
 public enum TraceFormat {
-  ADDRESS(AddressTraceReader::new),
-  ADDRESS_PENALTIES(AddressPenaltiesTraceReader::new),
-  ADAPT_SIZE(AdaptSizeTraceReader::new),
-  ARC(ArcTraceReader::new),
-  BALEEN(BaleenTraceReader::new),
-  CACHE2K(Cache2kTraceReader::new),
-  CACHELIB(CachelibTraceReader::new),
-  CAMELAB(CamelabTraceReader::new),
-  CLOUD_PHYSICS(CloudPhysicsTraceReader::new),
-  CORDA(CordaTraceReader::new),
-  GL_CACHE(GLCacheTraceReader::new),
-  GRADLE(GradleTraceReader::new),
-  LCS_TRACE(LibCacheSimCsvTraceReader::new),
-  LCS_TWITTER(LibCacheSimTwitterTraceReader::new),
-  LIRS(LirsTraceReader::new),
-  LRB(LrbTraceReader::new),
-  OUTBRAIN(OutbrainTraceReader::new),
-  SCARAB(ScarabTraceReader::new),
-  SNIA_CAMBRIDGE(CambridgeTraceReader::new),
-  SNIA_ENTERPRISE(EnterpriseTraceReader::new),
-  SNIA_K5CLOUD(K5cloudTraceReader::new),
-  SNIA_OBJECT_STORE(ObjectStoreTraceReader::new),
-  SNIA_SYSTOR(SystorTraceReader::new),
-  SNIA_TENCENT_BLOCK(TencentBlockTraceReader::new),
-  SNIA_TENCENT_PHOTO(TencentPhotoTraceReader::new),
-  TRAGEN(TragenTraceReader::new),
-  TWITTER(TwitterTraceReader::new),
-  UMASS_STORAGE(StorageTraceReader::new),
-  UMASS_YOUTUBE(YoutubeTraceReader::new),
-  WIKIPEDIA(WikipediaTraceReader::new);
 
-  private final Function<String, TraceReader> factory;
+    ADDRESS(AddressTraceReader::new),
+    ADDRESS_PENALTIES(AddressPenaltiesTraceReader::new),
+    ADAPT_SIZE(AdaptSizeTraceReader::new),
+    ARC(ArcTraceReader::new),
+    BALEEN(BaleenTraceReader::new),
+    CACHE2K(Cache2kTraceReader::new),
+    CACHELIB(CachelibTraceReader::new),
+    CAMELAB(CamelabTraceReader::new),
+    CLOUD_PHYSICS(CloudPhysicsTraceReader::new),
+    CORDA(CordaTraceReader::new),
+    GL_CACHE(GLCacheTraceReader::new),
+    GRADLE(GradleTraceReader::new),
+    LCS_TRACE(LibCacheSimCsvTraceReader::new),
+    LCS_TWITTER(LibCacheSimTwitterTraceReader::new),
+    LIRS(LirsTraceReader::new),
+    LRB(LrbTraceReader::new),
+    OUTBRAIN(OutbrainTraceReader::new),
+    SCARAB(ScarabTraceReader::new),
+    SNIA_CAMBRIDGE(CambridgeTraceReader::new),
+    SNIA_ENTERPRISE(EnterpriseTraceReader::new),
+    SNIA_K5CLOUD(K5cloudTraceReader::new),
+    SNIA_OBJECT_STORE(ObjectStoreTraceReader::new),
+    SNIA_SYSTOR(SystorTraceReader::new),
+    SNIA_TENCENT_BLOCK(TencentBlockTraceReader::new),
+    SNIA_TENCENT_PHOTO(TencentPhotoTraceReader::new),
+    TRAGEN(TragenTraceReader::new),
+    TWITTER(TwitterTraceReader::new),
+    UMASS_STORAGE(StorageTraceReader::new),
+    UMASS_YOUTUBE(YoutubeTraceReader::new),
+    WIKIPEDIA(WikipediaTraceReader::new);
 
-  TraceFormat(Function<String, TraceReader> factory) {
-    this.factory = factory;
-  }
+    private final Function<String, TraceReader> factory;
 
-  /**
-   * Returns a new reader for streaming the events from the trace file.
-   *
-   * @param filePaths the path to the files in the trace's format
-   * @return a reader for streaming the events from the file
-   */
-  public TraceReader readFiles(List<String> filePaths) {
-    return new TraceReader() {
+    TraceFormat(Function<String, TraceReader> factory) {
+        this.factory = factory;
+    }
 
-      @Override public ImmutableSet<Characteristic> characteristics() {
-        return readers().stream()
-            .flatMap(reader -> reader.characteristics().stream())
-            .collect(toImmutableEnumSet());
-      }
+    public TraceReader readFiles(List<String> filePaths) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-      @Override public Stream<AccessEvent> events() {
-        return readers().stream().flatMap(TraceReader::events);
-      }
-
-      private ImmutableList<TraceReader> readers() {
-        return filePaths.stream().map(path -> {
-          List<String> parts = Splitter.on(':').limit(2).splitToList(path);
-          TraceFormat format = (parts.size() == 1) ? TraceFormat.this : named(parts.getFirst());
-          return format.factory.apply(requireNonNull(Iterables.getLast(parts)));
-        }).collect(toImmutableList());
-      }
-    };
-  }
-
-  /** Returns the format based on its configuration name. */
-  public static TraceFormat named(String name) {
-    return TraceFormat.valueOf(name.replace('-', '_').toUpperCase(US));
-  }
+    public static TraceFormat named(String name) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

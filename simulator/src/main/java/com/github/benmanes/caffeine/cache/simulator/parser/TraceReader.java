@@ -18,7 +18,6 @@ package com.github.benmanes.caffeine.cache.simulator.parser;
 import java.util.Set;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
-
 import com.github.benmanes.caffeine.cache.simulator.policy.AccessEvent;
 import com.github.benmanes.caffeine.cache.simulator.policy.Policy.Characteristic;
 import com.google.common.collect.ImmutableSet;
@@ -31,33 +30,39 @@ import com.google.errorprone.annotations.MustBeClosed;
  */
 public interface TraceReader {
 
-  /** The event features that this trace supports. */
-  Set<Characteristic> characteristics();
+    /**
+     * The event features that this trace supports.
+     */
+    Set<Characteristic> characteristics();
 
-  /**
-   * Creates a stream that lazily reads the trace source.
-   * <p>
-   * If timely disposal of underlying resources is required, the try-with-resources construct should
-   * be used to ensure that the stream's {@link Stream#close close} method is invoked after the
-   * stream operations are completed.
-   *
-   * @return a lazy stream of cache events
-   */
-  @MustBeClosed
-  Stream<AccessEvent> events();
+    /**
+     * Creates a stream that lazily reads the trace source.
+     * <p>
+     * If timely disposal of underlying resources is required, the try-with-resources construct should
+     * be used to ensure that the stream's {@link Stream#close close} method is invoked after the
+     * stream operations are completed.
+     *
+     * @return a lazy stream of cache events
+     */
+    @MustBeClosed
+    Stream<AccessEvent> events();
 
-  /** A trace reader that does not contain external event metadata. */
-  @FunctionalInterface
-  interface KeyOnlyTraceReader extends TraceReader {
+    /**
+     * A trace reader that does not contain external event metadata.
+     */
+    @FunctionalInterface
+    interface KeyOnlyTraceReader extends TraceReader {
 
-    @Override default Set<Characteristic> characteristics() {
-      return ImmutableSet.of();
+        @Override
+        default Set<Characteristic> characteristics() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        default Stream<AccessEvent> events() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        LongStream keys();
     }
-
-    @Override default Stream<AccessEvent> events() {
-      return keys().mapToObj(AccessEvent::forKey);
-    }
-
-    LongStream keys();
-  }
 }

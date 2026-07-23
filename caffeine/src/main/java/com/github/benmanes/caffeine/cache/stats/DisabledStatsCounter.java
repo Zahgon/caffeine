@@ -16,7 +16,6 @@
 package com.github.benmanes.caffeine.cache.stats;
 
 import static java.util.Objects.requireNonNull;
-
 import com.github.benmanes.caffeine.cache.RemovalCause;
 
 /**
@@ -25,32 +24,41 @@ import com.github.benmanes.caffeine.cache.RemovalCause;
  * @author ben.manes@gmail.com (Ben Manes)
  */
 enum DisabledStatsCounter implements StatsCounter {
-  INSTANCE;
 
-  @Override
-  public void recordHits(int count) {}
+    INSTANCE;
 
-  @Override
-  public void recordMisses(int count) {}
+    @Override
+    public void recordHits(int count) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  public void recordLoadSuccess(long loadTime) {}
+    @Override
+    public void recordMisses(int count) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  public void recordLoadFailure(long loadTime) {}
+    @Override
+    public void recordLoadSuccess(long loadTime) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  public void recordEviction(int weight, RemovalCause cause) {
-    requireNonNull(cause);
-  }
+    @Override
+    public void recordLoadFailure(long loadTime) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  public CacheStats snapshot() {
-    return CacheStats.empty();
-  }
+    @Override
+    public void recordEviction(int weight, RemovalCause cause) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  public String toString() {
-    return snapshot().toString();
-  }
+    @Override
+    public CacheStats snapshot() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public String toString() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

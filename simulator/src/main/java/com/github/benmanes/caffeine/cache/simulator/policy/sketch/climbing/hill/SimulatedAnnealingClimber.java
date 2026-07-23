@@ -16,7 +16,6 @@
 package com.github.benmanes.caffeine.cache.simulator.policy.sketch.climbing.hill;
 
 import java.util.Random;
-
 import com.github.benmanes.caffeine.cache.simulator.BasicSettings;
 import com.github.benmanes.caffeine.cache.simulator.policy.sketch.climbing.AbstractClimber;
 import com.typesafe.config.Config;
@@ -27,83 +26,78 @@ import com.typesafe.config.Config;
  * @author ben.manes@gmail.com (Ben Manes)
  */
 public final class SimulatedAnnealingClimber extends AbstractClimber {
-  private final double coolDownTolerance;
-  private final double restartTolerance;
-  private final double minTemperature;
-  private final double coolDownRate;
-  private final int initialStepSize;
-  private final Random random;
 
-  private boolean increaseWindow;
-  private double temperature;
-  private int stepSize;
+    private final double coolDownTolerance;
 
-  public SimulatedAnnealingClimber(Config config) {
-    var settings = new SimulatedAnnealingSettings(config);
-    int maximumSize = Math.toIntExact(settings.maximumSize());
-    this.initialStepSize = (int) (settings.percentPivot() * maximumSize);
-    this.sampleSize = (int) (settings.percentSample() * maximumSize);
-    this.coolDownTolerance = 100 * settings.coolDownTolerance();
-    this.restartTolerance = 100 * settings.restartTolerance();
-    this.random = new Random(settings.randomSeed());
-    this.minTemperature = settings.minTemperature();
-    this.coolDownRate = settings.coolDownRate();
-    restart();
-  }
+    private final double restartTolerance;
 
-  private void restart() {
-    stepSize = initialStepSize;
-    temperature = 1.0;
-  }
+    private final double minTemperature;
 
-  @Override
-  protected double adjust(double hitRate) {
-    if ((previousHitRate - hitRate) >= restartTolerance) {
-      restart();
+    private final double coolDownRate;
+
+    private final int initialStepSize;
+
+    private final Random random;
+
+    private boolean increaseWindow;
+
+    private double temperature;
+
+    private int stepSize;
+
+    public SimulatedAnnealingClimber(Config config) {
+        var settings = new SimulatedAnnealingSettings(config);
+        int maximumSize = Math.toIntExact(settings.maximumSize());
+        this.initialStepSize = (int) (settings.percentPivot() * maximumSize);
+        this.sampleSize = (int) (settings.percentSample() * maximumSize);
+        this.coolDownTolerance = 100 * settings.coolDownTolerance();
+        this.restartTolerance = 100 * settings.restartTolerance();
+        this.random = new Random(settings.randomSeed());
+        this.minTemperature = settings.minTemperature();
+        this.coolDownRate = settings.coolDownRate();
+        restart();
     }
 
-    if (temperature <= minTemperature) {
-      return 0.0;
+    private void restart() {
+        stepSize = initialStepSize;
+        temperature = 1.0;
     }
 
-    double criteria = random.nextGaussian();
-    double acceptanceProbability = Math.exp((hitRate - previousHitRate) / (100 * temperature));
-    if ((hitRate < previousHitRate) && (acceptanceProbability <= criteria)) {
-      increaseWindow = !increaseWindow;
-      stepSize = Math.max(stepSize - 1, 0);
+    @Override
+    protected double adjust(double hitRate) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
-    if ((previousHitRate - hitRate) > coolDownTolerance) {
-      temperature = coolDownRate * temperature;
-      stepSize = 1 + (int) (stepSize * temperature);
-    }
+    static final class SimulatedAnnealingSettings extends BasicSettings {
 
-    return increaseWindow ? stepSize : -stepSize;
-  }
+        static final String BASE_PATH = "hill-climber-window-tiny-lfu.simulated-annealing.";
 
-  static final class SimulatedAnnealingSettings extends BasicSettings {
-    static final String BASE_PATH = "hill-climber-window-tiny-lfu.simulated-annealing.";
+        public SimulatedAnnealingSettings(Config config) {
+            super(config);
+        }
 
-    public SimulatedAnnealingSettings(Config config) {
-      super(config);
+        public double percentPivot() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public double percentSample() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public double coolDownRate() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public double minTemperature() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public double restartTolerance() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public double coolDownTolerance() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
     }
-    public double percentPivot() {
-      return config().getDouble(BASE_PATH + "percent-pivot");
-    }
-    public double percentSample() {
-      return config().getDouble(BASE_PATH + "percent-sample");
-    }
-    public double coolDownRate() {
-      return config().getDouble(BASE_PATH + "cool-down-rate");
-    }
-    public double minTemperature() {
-      return config().getDouble(BASE_PATH + "min-temperature");
-    }
-    public double restartTolerance() {
-      return config().getDouble(BASE_PATH + "restart-tolerance");
-    }
-    public double coolDownTolerance() {
-      return config().getDouble(BASE_PATH + "cool-down-tolerance");
-    }
-  }
 }

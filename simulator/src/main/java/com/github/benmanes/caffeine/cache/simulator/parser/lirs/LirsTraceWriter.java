@@ -16,12 +16,10 @@
 package com.github.benmanes.caffeine.cache.simulator.parser.lirs;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
-
 import com.github.benmanes.caffeine.cache.simulator.parser.TraceWriter;
 import com.github.benmanes.caffeine.cache.simulator.policy.AccessEvent;
 
@@ -31,20 +29,20 @@ import com.github.benmanes.caffeine.cache.simulator.policy.AccessEvent;
  * @author ben.manes@gmail.com (Ben Manes)
  */
 public final class LirsTraceWriter implements TraceWriter {
-  private final BufferedWriter writer;
 
-  public LirsTraceWriter(OutputStream output) {
-    this.writer = new BufferedWriter(new OutputStreamWriter(output, UTF_8));
-  }
+    private final BufferedWriter writer;
 
-  @Override
-  public void writeEvent(AccessEvent event) throws IOException {
-    writer.write(Long.toString(event.key()));
-    writer.newLine();
-  }
+    public LirsTraceWriter(OutputStream output) {
+        this.writer = new BufferedWriter(new OutputStreamWriter(output, UTF_8));
+    }
 
-  @Override
-  public void close() throws IOException {
-    writer.close();
-  }
+    @Override
+    public void writeEvent(AccessEvent event) throws IOException {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public void close() throws IOException {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

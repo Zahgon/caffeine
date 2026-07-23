@@ -16,9 +16,7 @@
 package com.github.benmanes.caffeine.guava;
 
 import java.lang.reflect.Method;
-
 import org.jspecify.annotations.NullMarked;
-
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.guava.CaffeinatedGuavaLoadingCache.ExternalBulkLoader;
 import com.github.benmanes.caffeine.guava.CaffeinatedGuavaLoadingCache.ExternalSingleLoader;
@@ -36,85 +34,33 @@ import com.google.common.cache.LoadingCache;
 @NullMarked
 public final class CaffeinatedGuava {
 
-  private CaffeinatedGuava() {}
-
-  /**
-   * Returns a Caffeine cache wrapped in a Guava {@link Cache} facade.
-   *
-   * @param builder the configured cache builder
-   * @param <K> the most general key type to create caches for
-   * @param <V> the most general value type to create caches for
-   * @param <K1> the key type of the cache
-   * @param <V1> the value type of the cache
-   * @return a cache exposed under the Guava APIs
-   */
-  @SuppressWarnings("PMD.TypeParameterNamingConventions")
-  public static <K, V, K1 extends K, V1 extends V> Cache<K1, V1> build(Caffeine<K, V> builder) {
-    return new CaffeinatedGuavaCache<>(builder.build());
-  }
-
-  /**
-   * Returns a Caffeine cache wrapped in a Guava {@link LoadingCache} facade.
-   *
-   * @param builder the configured cache builder
-   * @param loader the cache loader used to obtain new values
-   * @param <K> the most general key type to create caches for
-   * @param <V> the most general value type to create caches for
-   * @param <K1> the key type of the cache
-   * @param <V1> the value type of the cache
-   * @return a cache exposed under the Guava APIs
-   */
-  @SuppressWarnings("PMD.TypeParameterNamingConventions")
-  public static <K, V, K1 extends K, V1 extends V> LoadingCache<K1, V1> build(
-      Caffeine<K, V> builder, CacheLoader<? super K1, V1> loader) {
-    return build(builder, hasLoadAll(loader)
-        ? new InternalBulkLoader<>(loader)
-        : new InternalSingleLoader<>(loader));
-  }
-
-  /**
-   * Returns a Caffeine cache wrapped in a Guava {@link LoadingCache} facade.
-   *
-   * @param builder the configured cache builder
-   * @param loader the cache loader used to obtain new values
-   * @param <K> the most general key type to create caches for
-   * @param <V> the most general value type to create caches for
-   * @param <K1> the key type of the cache
-   * @param <V1> the value type of the cache
-   * @return a cache exposed under the Guava APIs
-   */
-  @SuppressWarnings("PMD.TypeParameterNamingConventions")
-  public static <K, V, K1 extends K, V1 extends V> LoadingCache<K1, V1> build(
-      Caffeine<K, V> builder,
-      com.github.benmanes.caffeine.cache.CacheLoader<? super K1, V1> loader) {
-    return new CaffeinatedGuavaLoadingCache<>(builder.build(loader));
-  }
-
-  /**
-   * Returns a Caffeine cache loader that delegates to a Guava cache loader.
-   *
-   * @param loader the cache loader used to obtain new values
-   * @param <K> the type of keys
-   * @param <V> the type of values
-   * @return a cache loader exposed under the Caffeine APIs
-   */
-  public static <K, V> com.github.benmanes.caffeine.cache.CacheLoader<K, V> caffeinate(
-      CacheLoader<K, V> loader) {
-    return hasLoadAll(loader)
-        ? new ExternalBulkLoader<>(loader)
-        : new ExternalSingleLoader<>(loader);
-  }
-
-  static boolean hasLoadAll(CacheLoader<?, ?> cacheLoader) {
-    return hasMethod(cacheLoader, "loadAll", Iterable.class);
-  }
-
-  static boolean hasMethod(CacheLoader<?, ?> cacheLoader, String name, Class<?>... paramTypes) {
-    try {
-      Method method = cacheLoader.getClass().getMethod(name, paramTypes);
-      return (method.getDeclaringClass() != CacheLoader.class);
-    } catch (NoSuchMethodException | SecurityException e) {
-      return false;
+    private CaffeinatedGuava() {
     }
-  }
+
+    @SuppressWarnings("PMD.TypeParameterNamingConventions")
+    public static <K, V, K1 extends K, V1 extends V> Cache<K1, V1> build(Caffeine<K, V> builder) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @SuppressWarnings("PMD.TypeParameterNamingConventions")
+    public static <K, V, K1 extends K, V1 extends V> LoadingCache<K1, V1> build(Caffeine<K, V> builder, CacheLoader<? super K1, V1> loader) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @SuppressWarnings("PMD.TypeParameterNamingConventions")
+    public static <K, V, K1 extends K, V1 extends V> LoadingCache<K1, V1> build(Caffeine<K, V> builder, com.github.benmanes.caffeine.cache.CacheLoader<? super K1, V1> loader) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public static <K, V> com.github.benmanes.caffeine.cache.CacheLoader<K, V> caffeinate(CacheLoader<K, V> loader) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    static boolean hasLoadAll(CacheLoader<?, ?> cacheLoader) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    static boolean hasMethod(CacheLoader<?, ?> cacheLoader, String name, Class<?>... paramTypes) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

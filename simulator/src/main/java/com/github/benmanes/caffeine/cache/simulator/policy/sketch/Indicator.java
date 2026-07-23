@@ -17,9 +17,7 @@ package com.github.benmanes.caffeine.cache.simulator.policy.sketch;
 
 import java.util.Arrays;
 import java.util.stream.IntStream;
-
 import org.apache.commons.math3.stat.regression.SimpleRegression;
-
 import com.clearspring.analytics.stream.StreamSummary;
 import com.github.benmanes.caffeine.cache.simulator.BasicSettings;
 import com.github.benmanes.caffeine.cache.simulator.admission.countmin4.PeriodicResetCountMin4;
@@ -32,119 +30,115 @@ import com.typesafe.config.ConfigFactory;
  * @author ohadey@gmail.com (Ohad Eytan)
  */
 public final class Indicator {
-  private final PeriodicResetCountMin4 sketch;
-  private final EstSkew estSkew;
-  private final Hinter hinter;
-  private final int k;
 
-  private long sample;
+    private final PeriodicResetCountMin4 sketch;
 
-  public Indicator(Config config) {
-    var settings = new IndicatorSettings(config);
-    this.sketch = new PeriodicResetCountMin4(
-        ConfigFactory.parseString("maximum-size = 5000").withFallback(config));
-    this.estSkew = new EstSkew(settings.ssSize());
-    this.hinter = new Hinter();
-    this.k = settings.k();
-  }
+    private final EstSkew estSkew;
 
-  public void record(long key) {
-    int hint = sketch.frequency(key);
-    hinter.increment(hint);
-    sketch.increment(key);
-    estSkew.record(key);
-    sample++;
-  }
+    private final Hinter hinter;
 
-  public void reset() {
-    hinter.reset();
-    estSkew.reset();
-    sample = 0;
-  }
+    private final int k;
 
-  public long getSample() {
-    return sample;
-  }
+    private long sample;
 
-  @SuppressWarnings("unused")
-  public int[] getFreqs() {
-    return hinter.freq;
-  }
-
-  public double getSkew() {
-    return estSkew.estSkew(k);
-  }
-
-  public double getHint() {
-    return hinter.getAverage();
-  }
-
-  public double getIndicator() {
-    double skew = getSkew();
-    return (getHint() * (skew < 1 ? 1 - Math.pow(skew, 3) : 0)) / 15.0;
-  }
-
-  static final class Hinter {
-    final int[] freq = new int[16];
-
-    int sum;
-    int count;
-
-    public void increment(int i) {
-      count++;
-      sum += i;
-      freq[i]++;
-    }
-
-    public void reset() {
-      sum = count = 0;
-      Arrays.fill(freq, 0);
-    }
-
-    public double getAverage() {
-      return (count == 0) ? 0.0 : (sum / (double) count);
-    }
-  }
-
-  static final class EstSkew {
-    final int ssSize;
-
-    StreamSummary<Long> stream;
-
-    public EstSkew(int ssSize) {
-      this.stream = new StreamSummary<>(ssSize);
-      this.ssSize = ssSize;
+    public Indicator(Config config) {
+        var settings = new IndicatorSettings(config);
+        this.sketch = new PeriodicResetCountMin4(ConfigFactory.parseString("maximum-size = 5000").withFallback(config));
+        this.estSkew = new EstSkew(settings.ssSize());
+        this.hinter = new Hinter();
+        this.k = settings.k();
     }
 
     public void record(long key) {
-      stream.offer(key);
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     public void reset() {
-      stream = new StreamSummary<>(ssSize);
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
-    public IntStream getTopK(int k) {
-      return stream.topK(k).stream().mapToInt(counter -> (int) counter.getCount());
+    public long getSample() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
-    public double estSkew(int k) {
-      int[] idx = { 1 };
-      var regression = new SimpleRegression();
-      getTopK(k).forEachOrdered(freq -> regression.addData(Math.log(idx[0]++), Math.log(freq)));
-      return -regression.getSlope();
+    @SuppressWarnings("unused")
+    public int[] getFreqs() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  static final class IndicatorSettings extends BasicSettings {
-    public IndicatorSettings(Config config) {
-      super(config);
+    public double getSkew() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    public int k() {
-      return config().getInt("indicator.k");
+
+    public double getHint() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    public int ssSize() {
-      return config().getInt("indicator.ss-size");
+
+    public double getIndicator() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
+
+    static final class Hinter {
+
+        final int[] freq = new int[16];
+
+        int sum;
+
+        int count;
+
+        public void increment(int i) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public void reset() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public double getAverage() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
+
+    static final class EstSkew {
+
+        final int ssSize;
+
+        StreamSummary<Long> stream;
+
+        public EstSkew(int ssSize) {
+            this.stream = new StreamSummary<>(ssSize);
+            this.ssSize = ssSize;
+        }
+
+        public void record(long key) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public void reset() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public IntStream getTopK(int k) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public double estSkew(int k) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
+
+    static final class IndicatorSettings extends BasicSettings {
+
+        public IndicatorSettings(Config config) {
+            super(config);
+        }
+
+        public int k() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public int ssSize() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
 }

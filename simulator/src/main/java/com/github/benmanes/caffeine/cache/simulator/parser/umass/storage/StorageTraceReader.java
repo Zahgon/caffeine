@@ -17,7 +17,6 @@ package com.github.benmanes.caffeine.cache.simulator.parser.umass.storage;
 
 import java.math.RoundingMode;
 import java.util.stream.LongStream;
-
 import com.github.benmanes.caffeine.cache.simulator.parser.TextTraceReader;
 import com.github.benmanes.caffeine.cache.simulator.parser.TraceReader.KeyOnlyTraceReader;
 import com.google.common.math.IntMath;
@@ -29,26 +28,15 @@ import com.google.common.math.IntMath;
  * @author ben.manes@gmail.com (Ben Manes)
  */
 public final class StorageTraceReader extends TextTraceReader implements KeyOnlyTraceReader {
-  static final int BLOCK_SIZE = 512;
 
-  public StorageTraceReader(String filePath) {
-    super(filePath);
-  }
+    static final int BLOCK_SIZE = 512;
 
-  @Override
-  public LongStream keys() {
-    return lines().flatMapToLong(line -> {
-      String[] array = line.split(",", 5);
-      if (array.length <= 4) {
-        return LongStream.empty();
-      }
-      long startBlock = Long.parseLong(array[1]);
-      int size = Integer.parseInt(array[2]);
-      int sequence = IntMath.divide(size, BLOCK_SIZE, RoundingMode.UP);
-      char readWrite = Character.toLowerCase(array[3].charAt(0));
-      return (readWrite == 'w')
-          ? LongStream.empty()
-          : LongStream.range(startBlock, startBlock + sequence);
-    });
-  }
+    public StorageTraceReader(String filePath) {
+        super(filePath);
+    }
+
+    @Override
+    public LongStream keys() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

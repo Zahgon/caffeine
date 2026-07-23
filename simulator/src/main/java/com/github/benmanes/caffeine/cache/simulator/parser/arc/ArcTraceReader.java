@@ -16,7 +16,6 @@
 package com.github.benmanes.caffeine.cache.simulator.parser.arc;
 
 import java.util.stream.LongStream;
-
 import com.github.benmanes.caffeine.cache.simulator.parser.TextTraceReader;
 import com.github.benmanes.caffeine.cache.simulator.parser.TraceReader.KeyOnlyTraceReader;
 
@@ -28,17 +27,12 @@ import com.github.benmanes.caffeine.cache.simulator.parser.TraceReader.KeyOnlyTr
  */
 public final class ArcTraceReader extends TextTraceReader implements KeyOnlyTraceReader {
 
-  public ArcTraceReader(String filePath) {
-    super(filePath);
-  }
+    public ArcTraceReader(String filePath) {
+        super(filePath);
+    }
 
-  @Override
-  public LongStream keys() {
-    return lines().flatMapToLong(line -> {
-      String[] array = line.split(" ", 3);
-      long startBlock = Long.parseLong(array[0]);
-      int sequence = Integer.parseInt(array[1]);
-      return LongStream.range(startBlock, startBlock + sequence);
-    });
-  }
+    @Override
+    public LongStream keys() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

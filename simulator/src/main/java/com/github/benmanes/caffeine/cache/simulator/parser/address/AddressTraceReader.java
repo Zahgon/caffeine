@@ -16,7 +16,6 @@
 package com.github.benmanes.caffeine.cache.simulator.parser.address;
 
 import java.util.stream.LongStream;
-
 import com.github.benmanes.caffeine.cache.simulator.parser.TextTraceReader;
 import com.github.benmanes.caffeine.cache.simulator.parser.TraceReader.KeyOnlyTraceReader;
 
@@ -28,15 +27,12 @@ import com.github.benmanes.caffeine.cache.simulator.parser.TraceReader.KeyOnlyTr
  */
 public final class AddressTraceReader extends TextTraceReader implements KeyOnlyTraceReader {
 
-  public AddressTraceReader(String filePath) {
-    super(filePath);
-  }
+    public AddressTraceReader(String filePath) {
+        super(filePath);
+    }
 
-  @Override
-  public LongStream keys() {
-    return lines()
-        .map(line -> line.split(" ", 3)[1])
-        .map(address -> address.substring(2))
-        .mapToLong(address -> Long.parseLong(address, 16));
-  }
+    @Override
+    public LongStream keys() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

@@ -16,7 +16,6 @@
 package com.github.benmanes.caffeine.cache.simulator.policy.sketch.tinycache;
 
 import org.jspecify.annotations.Nullable;
-
 import com.github.benmanes.caffeine.cache.simulator.BasicSettings;
 import com.github.benmanes.caffeine.cache.simulator.admission.tinycache.TinyCache;
 import com.github.benmanes.caffeine.cache.simulator.admission.tinycache.TinyCacheWithGhostCache;
@@ -31,44 +30,35 @@ import com.typesafe.config.Config;
  */
 @PolicySpec(name = "sketch.WindowTinyCache")
 public final class WindowTinyCachePolicy implements KeyOnlyPolicy {
-  private final TinyCacheWithGhostCache tinyCache;
-  private final @Nullable TinyCache window;
-  private final PolicyStats policyStats;
 
-  public WindowTinyCachePolicy(Config config) {
-    policyStats = new PolicyStats(name());
-    var settings = new BasicSettings(config);
-    @Var int maxSize = Math.toIntExact(settings.maximumSize());
-    if (maxSize <= 64) {
-      window = null;
-    } else {
-      maxSize -= 64;
-      window = new TinyCache(1, 64, 0);
+    private final TinyCacheWithGhostCache tinyCache;
+
+    @Nullable
+    private final TinyCache window;
+
+    private final PolicyStats policyStats;
+
+    public WindowTinyCachePolicy(Config config) {
+        policyStats = new PolicyStats(name());
+        var settings = new BasicSettings(config);
+        @Var
+        int maxSize = Math.toIntExact(settings.maximumSize());
+        if (maxSize <= 64) {
+            window = null;
+        } else {
+            maxSize -= 64;
+            window = new TinyCache(1, 64, 0);
+        }
+        tinyCache = new TinyCacheWithGhostCache((int) Math.ceil(maxSize / 64.0), 64, settings.randomSeed());
     }
-    tinyCache = new TinyCacheWithGhostCache(
-        (int) Math.ceil(maxSize / 64.0), 64, settings.randomSeed());
-  }
 
-  @Override
-  public void record(long key) {
-    if (tinyCache.contains(key) || ((window != null) && window.contains(key))) {
-      tinyCache.recordItem();
-      policyStats.recordHit();
-    } else {
-      @Var boolean evicted = tinyCache.addItem(key);
-      if (!evicted && (window != null)) {
-        evicted = window.addItem(key);
-      }
-      tinyCache.recordItem();
-      policyStats.recordMiss();
-      if (evicted) {
-        policyStats.recordEviction();
-      }
+    @Override
+    public void record(long key) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  @Override
-  public PolicyStats stats() {
-    return policyStats;
-  }
+    @Override
+    public PolicyStats stats() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

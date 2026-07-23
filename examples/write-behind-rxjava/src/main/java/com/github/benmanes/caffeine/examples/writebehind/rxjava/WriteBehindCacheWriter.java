@@ -17,7 +17,6 @@ package com.github.benmanes.caffeine.examples.writebehind.rxjava;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
-
 import java.time.Duration;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -25,9 +24,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.BinaryOperator;
 import java.util.function.Consumer;
-
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-
 import io.reactivex.rxjava3.subjects.PublishSubject;
 import io.reactivex.rxjava3.subjects.Subject;
 
@@ -49,55 +46,44 @@ import io.reactivex.rxjava3.subjects.Subject;
  * @author wim.deblauwe@gmail.com (Wim Deblauwe)
  */
 public final class WriteBehindCacheWriter<K, V> implements BiConsumer<K, V> {
-  private final Subject<Entry<K, V>> subject;
 
-  private WriteBehindCacheWriter(Builder<K, V> builder) {
-    subject = PublishSubject.<Entry<K, V>>create().toSerialized();
-    subject.buffer(builder.bufferTime.toNanos(), TimeUnit.NANOSECONDS)
-        .map(entries -> entries.stream().collect(
-            toMap(Entry::getKey, Entry::getValue, builder.coalescer)))
-        .subscribe(builder.writeAction::accept);
-  }
+    private final Subject<Entry<K, V>> subject;
 
-  @Override public void accept(K key, V value) {
-    subject.onNext(Map.entry(key, value));
-  }
-
-  public static final class Builder<K, V> {
-    private Consumer<Map<K, V>> writeAction;
-    private BinaryOperator<V> coalescer;
-    private Duration bufferTime;
-
-    /**
-     * The duration that the calls to the cache should be buffered before calling the
-     * {@code writeAction}.
-     */
-    @CanIgnoreReturnValue
-    public Builder<K, V> bufferTime(Duration duration) {
-      this.bufferTime = requireNonNull(duration);
-      return this;
+    private WriteBehindCacheWriter(Builder<K, V> builder) {
+        subject = PublishSubject.<Entry<K, V>>create().toSerialized();
+        subject.buffer(builder.bufferTime.toNanos(), TimeUnit.NANOSECONDS).map(entries -> entries.stream().collect(toMap(Entry::getKey, Entry::getValue, builder.coalescer))).subscribe(builder.writeAction::accept);
     }
 
-    /** The callback to perform the batch write. */
-    @CanIgnoreReturnValue
-    public Builder<K, V> writeAction(Consumer<Map<K, V>> writeAction) {
-      this.writeAction = requireNonNull(writeAction);
-      return this;
+    @Override
+    public void accept(K key, V value) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
-    /** The strategy that decides which value to take in case a key was updated multiple times. */
-    @CanIgnoreReturnValue
-    public Builder<K, V> coalesce(BinaryOperator<V> coalescer) {
-      this.coalescer = requireNonNull(coalescer);
-      return this;
-    }
+    public static final class Builder<K, V> {
 
-    /** Returns a writer that batches changes to the data store. */
-    public WriteBehindCacheWriter<K, V> build() {
-      requireNonNull(coalescer);
-      requireNonNull(bufferTime);
-      requireNonNull(writeAction);
-      return new WriteBehindCacheWriter<>(this);
+        private Consumer<Map<K, V>> writeAction;
+
+        private BinaryOperator<V> coalescer;
+
+        private Duration bufferTime;
+
+        @CanIgnoreReturnValue
+        public Builder<K, V> bufferTime(Duration duration) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @CanIgnoreReturnValue
+        public Builder<K, V> writeAction(Consumer<Map<K, V>> writeAction) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @CanIgnoreReturnValue
+        public Builder<K, V> coalesce(BinaryOperator<V> coalescer) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public WriteBehindCacheWriter<K, V> build() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
     }
-  }
 }

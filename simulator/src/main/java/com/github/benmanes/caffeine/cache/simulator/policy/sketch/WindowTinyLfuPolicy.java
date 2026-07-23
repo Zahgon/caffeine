@@ -18,12 +18,9 @@ package com.github.benmanes.caffeine.cache.simulator.policy.sketch;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toUnmodifiableSet;
-
 import java.util.List;
 import java.util.Set;
-
 import org.jspecify.annotations.Nullable;
-
 import com.github.benmanes.caffeine.cache.simulator.BasicSettings;
 import com.github.benmanes.caffeine.cache.simulator.admission.Admission;
 import com.github.benmanes.caffeine.cache.simulator.admission.Admitter;
@@ -33,7 +30,6 @@ import com.github.benmanes.caffeine.cache.simulator.policy.Policy.PolicySpec;
 import com.github.benmanes.caffeine.cache.simulator.policy.PolicyStats;
 import com.google.common.base.MoreObjects;
 import com.typesafe.config.Config;
-
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 
@@ -56,218 +52,198 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
  */
 @PolicySpec(name = "sketch.WindowTinyLfu")
 public final class WindowTinyLfuPolicy implements KeyOnlyPolicy {
-  private final Long2ObjectMap<Node> data;
-  private final PolicyStats policyStats;
-  private final Admitter admitter;
-  private final int maximumSize;
 
-  private final Node headWindow;
-  private final Node headProbation;
-  private final Node headProtected;
+    private final Long2ObjectMap<Node> data;
 
-  private final int maxWindow;
-  private final int maxProtected;
+    private final PolicyStats policyStats;
 
-  private int sizeWindow;
-  private int sizeProtected;
+    private final Admitter admitter;
 
-  @SuppressWarnings("Varifier")
-  public WindowTinyLfuPolicy(double percentMain, WindowTinyLfuSettings settings) {
-    this.policyStats = new PolicyStats(name() + " (%.0f%%)", 100 * (1.0d - percentMain));
-    this.admitter = Admission.TINYLFU.from(settings.config(), policyStats);
-    this.maximumSize = Math.toIntExact(settings.maximumSize());
+    private final int maximumSize;
 
-    int maxMain = (int) (maximumSize * percentMain);
-    this.maxProtected = (int) (maxMain * settings.percentMainProtected());
-    this.data = new Long2ObjectOpenHashMap<>();
-    this.maxWindow = maximumSize - maxMain;
-    this.headProtected = new Node();
-    this.headProbation = new Node();
-    this.headWindow = new Node();
-  }
+    private final Node headWindow;
 
-  /** Returns all variations of this policy based on the configuration parameters. */
-  public static Set<Policy> policies(Config config) {
-    var settings = new WindowTinyLfuSettings(config);
-    return settings.percentMain().stream()
-        .map(percentMain -> new WindowTinyLfuPolicy(percentMain, settings))
-        .collect(toUnmodifiableSet());
-  }
+    private final Node headProbation;
 
-  @Override
-  public PolicyStats stats() {
-    return policyStats;
-  }
+    private final Node headProtected;
 
-  @Override
-  public void record(long key) {
-    @Nullable Node node = data.get(key);
-    policyStats.recordOperation();
-    if (node == null) {
-      onMiss(key);
-      policyStats.recordMiss();
-    } else if (node.status == Status.WINDOW) {
-      onWindowHit(node);
-      policyStats.recordHit();
-    } else if (node.status == Status.PROBATION) {
-      onProbationHit(node);
-      policyStats.recordHit();
-    } else if (node.status == Status.PROTECTED) {
-      onProtectedHit(node);
-      policyStats.recordHit();
-    } else {
-      throw new IllegalStateException();
-    }
-  }
+    private final int maxWindow;
 
-  /** Adds the entry to the admission window, evicting if necessary. */
-  private void onMiss(long key) {
-    admitter.record(key);
+    private final int maxProtected;
 
-    var node = new Node(key, Status.WINDOW);
-    node.appendToTail(headWindow);
-    data.put(key, node);
-    sizeWindow++;
-    evict();
-  }
+    private int sizeWindow;
 
-  /** Moves the entry to the MRU position in the admission window. */
-  private void onWindowHit(Node node) {
-    admitter.record(node.key);
-    node.moveToTail(headWindow);
-  }
+    private int sizeProtected;
 
-  /** Promotes the entry to the protected region's MRU position, demoting an entry if necessary. */
-  private void onProbationHit(Node node) {
-    admitter.record(node.key);
-
-    node.remove();
-    node.status = Status.PROTECTED;
-    node.appendToTail(headProtected);
-
-    sizeProtected++;
-    if (sizeProtected > maxProtected) {
-      Node demote = requireNonNull(headProtected.next);
-      demote.remove();
-      demote.status = Status.PROBATION;
-      demote.appendToTail(headProbation);
-      sizeProtected--;
-    }
-  }
-
-  /** Moves the entry to the MRU position if it falls outside of the fast-path threshold. */
-  private void onProtectedHit(Node node) {
-    admitter.record(node.key);
-    node.moveToTail(headProtected);
-  }
-
-  /**
-   * Evicts from the admission window into the probation space. If the size exceeds the maximum,
-   * then the admission candidate and probation's victim are evaluated and one is evicted.
-   */
-  private void evict() {
-    if (sizeWindow <= maxWindow) {
-      return;
+    @SuppressWarnings("Varifier")
+    public WindowTinyLfuPolicy(double percentMain, WindowTinyLfuSettings settings) {
+        this.policyStats = new PolicyStats(name() + " (%.0f%%)", 100 * (1.0d - percentMain));
+        this.admitter = Admission.TINYLFU.from(settings.config(), policyStats);
+        this.maximumSize = Math.toIntExact(settings.maximumSize());
+        int maxMain = (int) (maximumSize * percentMain);
+        this.maxProtected = (int) (maxMain * settings.percentMainProtected());
+        this.data = new Long2ObjectOpenHashMap<>();
+        this.maxWindow = maximumSize - maxMain;
+        this.headProtected = new Node();
+        this.headProbation = new Node();
+        this.headWindow = new Node();
     }
 
-    Node candidate = requireNonNull(headWindow.next);
-    sizeWindow--;
-
-    candidate.remove();
-    candidate.status = Status.PROBATION;
-    candidate.appendToTail(headProbation);
-
-    if (data.size() > maximumSize) {
-      Node victim = requireNonNull(headProbation.next);
-      Node evict = admitter.admit(candidate.key, victim.key) ? victim : candidate;
-      data.remove(evict.key);
-      evict.remove();
-
-      policyStats.recordEviction();
-    }
-  }
-
-  @Override
-  public void finished() {
-    long windowSize = data.values().stream().filter(n -> n.status == Status.WINDOW).count();
-    long probationSize = data.values().stream().filter(n -> n.status == Status.PROBATION).count();
-    long protectedSize = data.values().stream().filter(n -> n.status == Status.PROTECTED).count();
-
-    checkState(windowSize == sizeWindow);
-    checkState(protectedSize == sizeProtected);
-    checkState(probationSize == data.size() - windowSize - protectedSize);
-
-    checkState(data.size() <= maximumSize);
-  }
-
-  enum Status {
-    WINDOW, PROBATION, PROTECTED
-  }
-
-  /** A node on the double-linked list. */
-  static final class Node {
-    final long key;
-
-    @Nullable Node prev;
-    @Nullable Node next;
-    @Nullable Status status;
-
-    /** Creates a new sentinel node. */
-    public Node() {
-      this.key = Integer.MIN_VALUE;
-      this.prev = this;
-      this.next = this;
-    }
-
-    /** Creates a new, unlinked node. */
-    public Node(long key, Status status) {
-      this.status = status;
-      this.key = key;
-    }
-
-    public void moveToTail(Node head) {
-      remove();
-      appendToTail(head);
-    }
-
-    /** Appends the node to the tail of the list. */
-    public void appendToTail(Node head) {
-      requireNonNull(head.prev);
-      Node tail = head.prev;
-      head.prev = this;
-      tail.next = this;
-      next = head;
-      prev = tail;
-    }
-
-    /** Removes the node from the list. */
-    public void remove() {
-      requireNonNull(prev);
-      requireNonNull(next);
-
-      prev.next = next;
-      next.prev = prev;
-      next = prev = null;
+    public static Set<Policy> policies(Config config) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
     @Override
-    public String toString() {
-      return MoreObjects.toStringHelper(this)
-          .add("key", key)
-          .add("status", status)
-          .toString();
+    public PolicyStats stats() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  public static final class WindowTinyLfuSettings extends BasicSettings {
-    public WindowTinyLfuSettings(Config config) {
-      super(config);
+    @Override
+    public void record(long key) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    public List<Double> percentMain() {
-      return config().getDoubleList("window-tiny-lfu.percent-main");
+
+    /**
+     * Adds the entry to the admission window, evicting if necessary.
+     */
+    private void onMiss(long key) {
+        admitter.record(key);
+        var node = new Node(key, Status.WINDOW);
+        node.appendToTail(headWindow);
+        data.put(key, node);
+        sizeWindow++;
+        evict();
     }
-    public double percentMainProtected() {
-      return config().getDouble("window-tiny-lfu.percent-main-protected");
+
+    /**
+     * Moves the entry to the MRU position in the admission window.
+     */
+    private void onWindowHit(Node node) {
+        admitter.record(node.key);
+        node.moveToTail(headWindow);
     }
-  }
+
+    /**
+     * Promotes the entry to the protected region's MRU position, demoting an entry if necessary.
+     */
+    private void onProbationHit(Node node) {
+        admitter.record(node.key);
+        node.remove();
+        node.status = Status.PROTECTED;
+        node.appendToTail(headProtected);
+        sizeProtected++;
+        if (sizeProtected > maxProtected) {
+            Node demote = requireNonNull(headProtected.next);
+            demote.remove();
+            demote.status = Status.PROBATION;
+            demote.appendToTail(headProbation);
+            sizeProtected--;
+        }
+    }
+
+    /**
+     * Moves the entry to the MRU position if it falls outside of the fast-path threshold.
+     */
+    private void onProtectedHit(Node node) {
+        admitter.record(node.key);
+        node.moveToTail(headProtected);
+    }
+
+    /**
+     * Evicts from the admission window into the probation space. If the size exceeds the maximum,
+     * then the admission candidate and probation's victim are evaluated and one is evicted.
+     */
+    private void evict() {
+        if (sizeWindow <= maxWindow) {
+            return;
+        }
+        Node candidate = requireNonNull(headWindow.next);
+        sizeWindow--;
+        candidate.remove();
+        candidate.status = Status.PROBATION;
+        candidate.appendToTail(headProbation);
+        if (data.size() > maximumSize) {
+            Node victim = requireNonNull(headProbation.next);
+            Node evict = admitter.admit(candidate.key, victim.key) ? victim : candidate;
+            data.remove(evict.key);
+            evict.remove();
+            policyStats.recordEviction();
+        }
+    }
+
+    @Override
+    public void finished() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    enum Status {
+
+        WINDOW, PROBATION, PROTECTED
+    }
+
+    /**
+     * A node on the double-linked list.
+     */
+    static final class Node {
+
+        final long key;
+
+        @Nullable
+        Node prev;
+
+        @Nullable
+        Node next;
+
+        @Nullable
+        Status status;
+
+        /**
+         * Creates a new sentinel node.
+         */
+        public Node() {
+            this.key = Integer.MIN_VALUE;
+            this.prev = this;
+            this.next = this;
+        }
+
+        /**
+         * Creates a new, unlinked node.
+         */
+        public Node(long key, Status status) {
+            this.status = status;
+            this.key = key;
+        }
+
+        public void moveToTail(Node head) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public void appendToTail(Node head) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public void remove() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public String toString() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
+
+    public static final class WindowTinyLfuSettings extends BasicSettings {
+
+        public WindowTinyLfuSettings(Config config) {
+            super(config);
+        }
+
+        public List<Double> percentMain() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public double percentMainProtected() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
 }

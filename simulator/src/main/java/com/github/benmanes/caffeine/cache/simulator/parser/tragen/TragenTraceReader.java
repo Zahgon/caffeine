@@ -16,10 +16,8 @@
 package com.github.benmanes.caffeine.cache.simulator.parser.tragen;
 
 import static com.github.benmanes.caffeine.cache.simulator.policy.Policy.Characteristic.WEIGHTED;
-
 import java.util.Set;
 import java.util.stream.Stream;
-
 import com.github.benmanes.caffeine.cache.simulator.parser.TextTraceReader;
 import com.github.benmanes.caffeine.cache.simulator.policy.AccessEvent;
 import com.github.benmanes.caffeine.cache.simulator.policy.Policy.Characteristic;
@@ -32,20 +30,17 @@ import com.github.benmanes.caffeine.cache.simulator.policy.Policy.Characteristic
  */
 public final class TragenTraceReader extends TextTraceReader {
 
-  public TragenTraceReader(String filePath) {
-    super(filePath);
-  }
+    public TragenTraceReader(String filePath) {
+        super(filePath);
+    }
 
-  @Override
-  public Set<Characteristic> characteristics() {
-    return Set.of(WEIGHTED);
-  }
+    @Override
+    public Set<Characteristic> characteristics() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  public Stream<AccessEvent> events() {
-    return lines()
-        .map(line -> line.split(","))
-        .map(array -> AccessEvent.forKeyAndWeight(
-            Long.parseLong(array[1]), Integer.parseInt(array[2])));
-  }
+    @Override
+    public Stream<AccessEvent> events() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

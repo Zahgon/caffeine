@@ -27,66 +27,68 @@ import com.typesafe.config.Config;
  * @author ben.manes@gmail.com (Ben Manes)
  */
 public final class Adam extends AbstractClimber {
-  private final int stepSize;
-  private final double beta1;
-  private final double beta2;
-  private final double epsilon;
 
-  private int t;
-  private double moment;
-  private double velocity;
+    private final int stepSize;
 
-  public Adam(Config config) {
-    var settings = new AdamSettings(config);
-    int maximumSize = Math.toIntExact(settings.maximumSize());
-    sampleSize = (int) (settings.percentSample() * maximumSize);
-    stepSize = (int) (settings.percentPivot() * maximumSize);
-    epsilon = settings.epsilon();
-    beta1 = settings.beta1();
-    beta2 = settings.beta2();
-    t = 1;
-  }
+    private final double beta1;
 
-  @Override
-  protected void resetSample(double hitRate) {
-    super.resetSample(hitRate);
-    t++;
-  }
+    private final double beta2;
 
-  @Override
-  protected double adjust(double hitRate) {
-    double currentMissRate = (1 - hitRate);
-    double previousMissRate = (1 - previousHitRate);
-    double gradient = currentMissRate - previousMissRate;
+    private final double epsilon;
 
-    moment = (beta1 * moment) + ((1 - beta1) * gradient);
-    velocity = (beta2 * velocity) + ((1 - beta2) * (gradient * gradient));
+    private int t;
 
-    double momentBias = moment / (1 - Math.pow(beta1, t));
-    double velocityBias = velocity / (1 - Math.pow(beta2, t));
-    return (stepSize * momentBias) / (Math.sqrt(velocityBias) + epsilon);
-  }
+    private double moment;
 
-  static final class AdamSettings extends BasicSettings {
-    static final String BASE_PATH = "hill-climber-window-tiny-lfu.adam.";
+    private double velocity;
 
-    public AdamSettings(Config config) {
-      super(config);
+    public Adam(Config config) {
+        var settings = new AdamSettings(config);
+        int maximumSize = Math.toIntExact(settings.maximumSize());
+        sampleSize = (int) (settings.percentSample() * maximumSize);
+        stepSize = (int) (settings.percentPivot() * maximumSize);
+        epsilon = settings.epsilon();
+        beta1 = settings.beta1();
+        beta2 = settings.beta2();
+        t = 1;
     }
-    public double percentPivot() {
-      return config().getDouble(BASE_PATH + "percent-pivot");
+
+    @Override
+    protected void resetSample(double hitRate) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    public double percentSample() {
-      return config().getDouble(BASE_PATH + "percent-sample");
+
+    @Override
+    protected double adjust(double hitRate) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    public double beta1() {
-      return config().getDouble(BASE_PATH + "beta1");
+
+    static final class AdamSettings extends BasicSettings {
+
+        static final String BASE_PATH = "hill-climber-window-tiny-lfu.adam.";
+
+        public AdamSettings(Config config) {
+            super(config);
+        }
+
+        public double percentPivot() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public double percentSample() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public double beta1() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public double beta2() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public double epsilon() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
     }
-    public double beta2() {
-      return config().getDouble(BASE_PATH + "beta2");
-    }
-    public double epsilon() {
-      return config().getDouble(BASE_PATH + "epsilon");
-    }
-  }
 }

@@ -16,10 +16,8 @@
 package com.github.benmanes.caffeine.cache.stats;
 
 import static java.util.Objects.requireNonNull;
-
 import java.lang.System.Logger;
 import java.lang.System.Logger.Level;
-
 import com.github.benmanes.caffeine.cache.RemovalCause;
 
 /**
@@ -29,72 +27,47 @@ import com.github.benmanes.caffeine.cache.RemovalCause;
  * @author ben.manes@gmail.com (Ben Manes)
  */
 final class GuardedStatsCounter implements StatsCounter {
-  static final Logger logger = System.getLogger(GuardedStatsCounter.class.getName());
 
-  final StatsCounter delegate;
+    static final Logger logger = System.getLogger(GuardedStatsCounter.class.getName());
 
-  GuardedStatsCounter(StatsCounter delegate) {
-    this.delegate = requireNonNull(delegate);
-  }
+    final StatsCounter delegate;
 
-  @Override
-  public void recordHits(int count) {
-    try {
-      delegate.recordHits(count);
-    } catch (Throwable t) {
-      logger.log(Level.WARNING, "Exception thrown by stats counter", t);
+    GuardedStatsCounter(StatsCounter delegate) {
+        this.delegate = requireNonNull(delegate);
     }
-  }
 
-  @Override
-  public void recordMisses(int count) {
-    try {
-      delegate.recordMisses(count);
-    } catch (Throwable t) {
-      logger.log(Level.WARNING, "Exception thrown by stats counter", t);
+    @Override
+    public void recordHits(int count) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  @Override
-  public void recordLoadSuccess(long loadTime) {
-    try {
-      delegate.recordLoadSuccess(loadTime);
-    } catch (Throwable t) {
-      logger.log(Level.WARNING, "Exception thrown by stats counter", t);
+    @Override
+    public void recordMisses(int count) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  @Override
-  public void recordLoadFailure(long loadTime) {
-    try {
-      delegate.recordLoadFailure(loadTime);
-    } catch (Throwable t) {
-      logger.log(Level.WARNING, "Exception thrown by stats counter", t);
+    @Override
+    public void recordLoadSuccess(long loadTime) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  @Override
-  public void recordEviction(int weight, RemovalCause cause) {
-    requireNonNull(cause);
-    try {
-      delegate.recordEviction(weight, cause);
-    } catch (Throwable t) {
-      logger.log(Level.WARNING, "Exception thrown by stats counter", t);
+    @Override
+    public void recordLoadFailure(long loadTime) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  @Override
-  public CacheStats snapshot() {
-    try {
-      return delegate.snapshot();
-    } catch (Throwable t) {
-      logger.log(Level.WARNING, "Exception thrown by stats counter", t);
-      return CacheStats.empty();
+    @Override
+    public void recordEviction(int weight, RemovalCause cause) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  @Override
-  public String toString() {
-    return delegate.toString();
-  }
+    @Override
+    public CacheStats snapshot() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public String toString() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

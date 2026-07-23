@@ -16,10 +16,8 @@
 package com.github.benmanes.caffeine.cache.simulator.membership.bloom;
 
 import static com.google.common.base.Preconditions.checkState;
-
 import org.fastfilter.Filter;
 import org.fastfilter.FilterType;
-
 import com.github.benmanes.caffeine.cache.simulator.BasicSettings;
 import com.github.benmanes.caffeine.cache.simulator.membership.Membership;
 import com.google.common.base.CaseFormat;
@@ -32,54 +30,55 @@ import com.typesafe.config.Config;
  * @author ben@withvector.com (Ben Manes)
  */
 public final class FastFilter implements Membership {
-  private final FilterType filterType;
-  private final int bitsPerKey;
-  private final long[] keys;
 
-  private Filter filter;
+    private final FilterType filterType;
 
-  public FastFilter(Config config) {
-    var settings = new FastFilterSettings(config);
-    keys = new long[(int) settings.membership().expectedInsertions()];
-    filterType = settings.filterType();
-    bitsPerKey = settings.bitsPerKey();
-    reset();
-  }
+    private final int bitsPerKey;
 
-  @Override
-  public boolean mightContain(long e) {
-    return filter.mayContain(e);
-  }
+    private final long[] keys;
 
-  @Override
-  public void clear() {
-    reset();
-  }
+    private Filter filter;
 
-  @Override
-  public boolean put(long e) {
-    if (filter.mayContain(e)) {
-      return false;
+    public FastFilter(Config config) {
+        var settings = new FastFilterSettings(config);
+        keys = new long[(int) settings.membership().expectedInsertions()];
+        filterType = settings.filterType();
+        bitsPerKey = settings.bitsPerKey();
+        reset();
     }
-    filter.add(e);
-    return true;
-  }
 
-  private void reset() {
-    filter = filterType.construct(keys, bitsPerKey);
-    checkState(filter.supportsAdd(), "Filter must support additions");
-  }
+    @Override
+    public boolean mightContain(long e) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  static final class FastFilterSettings extends BasicSettings {
-    public FastFilterSettings(Config config) {
-      super(config);
+    @Override
+    public void clear() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    public FilterType filterType() {
-      String type = config().getString("membership.fast-filter.type");
-      return FilterType.valueOf(CaseFormat.LOWER_HYPHEN.to(CaseFormat.UPPER_UNDERSCORE, type));
+
+    @Override
+    public boolean put(long e) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    public int bitsPerKey() {
-      return config().getInt("membership.fast-filter.bits-per-key");
+
+    private void reset() {
+        filter = filterType.construct(keys, bitsPerKey);
+        checkState(filter.supportsAdd(), "Filter must support additions");
     }
-  }
+
+    static final class FastFilterSettings extends BasicSettings {
+
+        public FastFilterSettings(Config config) {
+            super(config);
+        }
+
+        public FilterType filterType() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public int bitsPerKey() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
 }

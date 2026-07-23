@@ -16,11 +16,8 @@
 package com.github.benmanes.caffeine.cache.stats;
 
 import static java.util.Objects.requireNonNull;
-
 import java.util.concurrent.atomic.LongAdder;
-
 import org.jspecify.annotations.NullMarked;
-
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.RemovalCause;
 
@@ -31,91 +28,77 @@ import com.github.benmanes.caffeine.cache.RemovalCause;
  */
 @NullMarked
 public final class ConcurrentStatsCounter implements StatsCounter {
-  private final LongAdder hitCount;
-  private final LongAdder missCount;
-  private final LongAdder loadSuccessCount;
-  private final LongAdder loadFailureCount;
-  private final LongAdder totalLoadTime;
-  private final LongAdder evictionCount;
-  private final LongAdder evictionWeight;
 
-  /**
-   * Constructs an instance with all counts initialized to zero.
-   */
-  public ConcurrentStatsCounter() {
-    hitCount = new LongAdder();
-    missCount = new LongAdder();
-    loadSuccessCount = new LongAdder();
-    loadFailureCount = new LongAdder();
-    totalLoadTime = new LongAdder();
-    evictionCount = new LongAdder();
-    evictionWeight = new LongAdder();
-  }
+    private final LongAdder hitCount;
 
-  @Override
-  public void recordHits(int count) {
-    hitCount.add(count);
-  }
+    private final LongAdder missCount;
 
-  @Override
-  public void recordMisses(int count) {
-    missCount.add(count);
-  }
+    private final LongAdder loadSuccessCount;
 
-  @Override
-  public void recordLoadSuccess(long loadTime) {
-    loadSuccessCount.increment();
-    totalLoadTime.add(loadTime);
-  }
+    private final LongAdder loadFailureCount;
 
-  @Override
-  public void recordLoadFailure(long loadTime) {
-    loadFailureCount.increment();
-    totalLoadTime.add(loadTime);
-  }
+    private final LongAdder totalLoadTime;
 
-  @Override
-  public void recordEviction(int weight, RemovalCause cause) {
-    requireNonNull(cause);
-    evictionCount.increment();
-    evictionWeight.add(weight);
-  }
+    private final LongAdder evictionCount;
 
-  @Override
-  public CacheStats snapshot() {
-    return CacheStats.of(
-        negativeToMaxValue(hitCount.sum()),
-        negativeToMaxValue(missCount.sum()),
-        negativeToMaxValue(loadSuccessCount.sum()),
-        negativeToMaxValue(loadFailureCount.sum()),
-        negativeToMaxValue(totalLoadTime.sum()),
-        negativeToMaxValue(evictionCount.sum()),
-        negativeToMaxValue(evictionWeight.sum()));
-  }
+    private final LongAdder evictionWeight;
 
-  /** Returns {@code value}, if non-negative. Otherwise, returns {@link Long#MAX_VALUE}. */
-  private static long negativeToMaxValue(long value) {
-    return (value >= 0) ? value : Long.MAX_VALUE;
-  }
+    /**
+     * Constructs an instance with all counts initialized to zero.
+     */
+    public ConcurrentStatsCounter() {
+        hitCount = new LongAdder();
+        missCount = new LongAdder();
+        loadSuccessCount = new LongAdder();
+        loadFailureCount = new LongAdder();
+        totalLoadTime = new LongAdder();
+        evictionCount = new LongAdder();
+        evictionWeight = new LongAdder();
+    }
 
-  /**
-   * Increments all counters by the values in {@code other}.
-   *
-   * @param other the counter to increment from
-   */
-  public void incrementBy(StatsCounter other) {
-    CacheStats otherStats = other.snapshot();
-    hitCount.add(otherStats.hitCount());
-    missCount.add(otherStats.missCount());
-    loadSuccessCount.add(otherStats.loadSuccessCount());
-    loadFailureCount.add(otherStats.loadFailureCount());
-    totalLoadTime.add(otherStats.totalLoadTime());
-    evictionCount.add(otherStats.evictionCount());
-    evictionWeight.add(otherStats.evictionWeight());
-  }
+    @Override
+    public void recordHits(int count) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  public String toString() {
-    return snapshot().toString();
-  }
+    @Override
+    public void recordMisses(int count) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public void recordLoadSuccess(long loadTime) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public void recordLoadFailure(long loadTime) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public void recordEviction(int weight, RemovalCause cause) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public CacheStats snapshot() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    /**
+     * Returns {@code value}, if non-negative. Otherwise, returns {@link Long#MAX_VALUE}.
+     */
+    private static long negativeToMaxValue(long value) {
+        return (value >= 0) ? value : Long.MAX_VALUE;
+    }
+
+    public void incrementBy(StatsCounter other) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public String toString() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

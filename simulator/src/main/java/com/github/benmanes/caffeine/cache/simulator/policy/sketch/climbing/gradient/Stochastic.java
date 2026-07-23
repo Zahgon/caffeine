@@ -16,7 +16,6 @@
 package com.github.benmanes.caffeine.cache.simulator.policy.sketch.climbing.gradient;
 
 import static java.util.Locale.US;
-
 import com.github.benmanes.caffeine.cache.simulator.BasicSettings;
 import com.github.benmanes.caffeine.cache.simulator.policy.sketch.climbing.AbstractClimber;
 import com.typesafe.config.Config;
@@ -43,61 +42,56 @@ import com.typesafe.config.Config;
  */
 @SuppressWarnings("JavadocLinkAsPlainText")
 public final class Stochastic extends AbstractClimber {
-  private final Acceleration acceleration;
-  private final int stepSize;
-  private final double beta;
 
-  private double velocity;
+    private final Acceleration acceleration;
 
-  public Stochastic(Config config) {
-    var settings = new StochasticSettings(config);
-    int maximumSize = Math.toIntExact(settings.maximumSize());
-    sampleSize = (int) (settings.percentSample() * maximumSize);
-    stepSize = (int) (settings.percentPivot() * maximumSize);
-    acceleration = settings.acceleration();
-    beta = settings.beta();
-  }
+    private final int stepSize;
 
-  @Override
-  protected double adjust(double hitRate) {
-    double currentMissRate = (1 - hitRate);
-    double previousMissRate = (1 - previousHitRate);
-    double gradient = currentMissRate - previousMissRate;
+    private final double beta;
 
-    return switch (acceleration) {
-      case NONE -> stepSize * gradient;
-      case MOMENTUM -> {
-        velocity = (beta * velocity) + (1 - beta) * gradient;
-        yield stepSize * velocity;
-      }
-      case NESTEROV -> {
-        // http://cs231n.github.io/neural-networks-3/#sgd
-        double previousVelocity = velocity;
-        velocity = (beta * velocity) + stepSize * gradient;
-        yield -(beta * previousVelocity) + ((1 + beta) * velocity);
-      }
-    };
-  }
+    private double velocity;
 
-  enum Acceleration { NONE, MOMENTUM, NESTEROV }
-
-  static final class StochasticSettings extends BasicSettings {
-    static final String BASE_PATH = "hill-climber-window-tiny-lfu.stochastic-gradient-descent.";
-
-    public StochasticSettings(Config config) {
-      super(config);
+    public Stochastic(Config config) {
+        var settings = new StochasticSettings(config);
+        int maximumSize = Math.toIntExact(settings.maximumSize());
+        sampleSize = (int) (settings.percentSample() * maximumSize);
+        stepSize = (int) (settings.percentPivot() * maximumSize);
+        acceleration = settings.acceleration();
+        beta = settings.beta();
     }
-    public double percentPivot() {
-      return config().getDouble(BASE_PATH + "percent-pivot");
+
+    @Override
+    protected double adjust(double hitRate) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    public double percentSample() {
-      return config().getDouble(BASE_PATH + "percent-sample");
+
+    enum Acceleration {
+
+        NONE, MOMENTUM, NESTEROV
     }
-    public Acceleration acceleration() {
-      return Acceleration.valueOf(config().getString(BASE_PATH + "acceleration").toUpperCase(US));
+
+    static final class StochasticSettings extends BasicSettings {
+
+        static final String BASE_PATH = "hill-climber-window-tiny-lfu.stochastic-gradient-descent.";
+
+        public StochasticSettings(Config config) {
+            super(config);
+        }
+
+        public double percentPivot() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public double percentSample() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public Acceleration acceleration() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        public double beta() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
     }
-    public double beta() {
-      return config().getDouble(BASE_PATH + "beta");
-    }
-  }
 }

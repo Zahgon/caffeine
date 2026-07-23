@@ -16,12 +16,10 @@
 package com.github.benmanes.caffeine.cache.simulator.admission.table;
 
 import java.util.Random;
-
 import com.github.benmanes.caffeine.cache.simulator.BasicSettings;
 import com.github.benmanes.caffeine.cache.simulator.admission.Frequency;
 import com.google.errorprone.annotations.Var;
 import com.typesafe.config.Config;
-
 import it.unimi.dsi.fastutil.longs.Long2IntMap;
 import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
@@ -37,59 +35,46 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
  * @author gilg1983@gmail.com (Gil Einziger)
  */
 public final class RandomRemovalFrequencyTable implements Frequency {
-  /** controls both the max count and how many items are remembered (the sum) */
-  private static final int sampleFactor = 8;
 
-  /** a placeholder for TinyTable */
-  private final Long2IntMap table;
-  /** used to drop items at random */
-  private final Random random;
-  /** sum of total items */
-  private final int maxSum;
+    /**
+     * controls both the max count and how many items are remembered (the sum)
+     */
+    private static final int sampleFactor = 8;
 
-  /** total sum of stored items **/
-  private int currSum;
+    /**
+     * a placeholder for TinyTable
+     */
+    private final Long2IntMap table;
 
-  public RandomRemovalFrequencyTable(Config config) {
-    var settings = new BasicSettings(config);
-    maxSum = Math.toIntExact(sampleFactor * settings.maximumSize());
-    random = new Random(settings.randomSeed());
-    table = new Long2IntOpenHashMap(maxSum);
-  }
+    /**
+     * used to drop items at random
+     */
+    private final Random random;
 
-  @Override
-  public int frequency(long e) {
-    return table.getOrDefault(e, 0);
-  }
+    /**
+     * sum of total items
+     */
+    private final int maxSum;
 
-  @Override
-  public void increment(long e) {
-    // read and increments value
-    @Var int value = table.getOrDefault(e, 0) + 1;
-    // if the value is big enough there is no point in dropping a value, so we just quit
-    if (value > sampleFactor) {
-      return;
+    /**
+     * total sum of stored items *
+     */
+    private int currSum;
+
+    public RandomRemovalFrequencyTable(Config config) {
+        var settings = new BasicSettings(config);
+        maxSum = Math.toIntExact(sampleFactor * settings.maximumSize());
+        random = new Random(settings.randomSeed());
+        table = new Long2IntOpenHashMap(maxSum);
     }
 
-    // putting the new value
-    table.put(e, value);
-    // advancing the number of items
-    if (currSum < maxSum) {
-      currSum++;
+    @Override
+    public int frequency(long e) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
 
-    // Once the table is full every item that arrive some other item leaves. This implementation is
-    // lacking as the probability to forget each item does not depend on frequency (so items do not
-    // converge to their true frequency, but I do not think it is worth fixing right now as this is
-    // just a model).
-    if (currSum == maxSum) {
-      var array = new LongArrayList(table.keySet());
-      long itemToRemove = array.getLong(random.nextInt(array.size()));
-      value = table.remove(itemToRemove);
-
-      if (value > 1) {
-        table.put(itemToRemove, value - 1);
-      }
+    @Override
+    public void increment(long e) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 }

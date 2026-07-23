@@ -16,16 +16,12 @@
 package com.github.benmanes.caffeine.cache.simulator.policy;
 
 import static com.google.common.base.Preconditions.checkArgument;
-
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReferenceArray;
-
 import org.jspecify.annotations.Nullable;
-
 import com.google.common.base.MoreObjects;
 import com.google.errorprone.annotations.Immutable;
 import com.google.errorprone.annotations.Var;
-
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -35,131 +31,121 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 @Immutable
 public class AccessEvent {
-  private final long key;
 
-  private AccessEvent(long key) {
-    this.key = key;
-  }
+    private final long key;
 
-  /** Returns the key. */
-  public long key() {
-    return key;
-  }
-
-  /** Returns the object key. */
-  public Long longKey() {
-    return LongInterner.boxed(key);
-  }
-
-  /** Returns the weight of the entry. */
-  public int weight() {
-    return 1;
-  }
-
-  /** Returns the hit penalty of the entry. */
-  public double hitPenalty() {
-    return 0;
-  }
-
-  /** Returns the miss penalty of the entry. */
-  public double missPenalty() {
-    return 0;
-  }
-
-  /** Returns if the trace supplies the hit/miss penalty for this entry. */
-  public boolean isPenaltyAware() {
-    return false;
-  }
-
-  @Override
-  @SuppressFBWarnings("FE_FLOATING_POINT_EQUALITY")
-  public boolean equals(@Nullable Object o) {
-    return (o instanceof AccessEvent event)
-        && (key() == event.key())
-        && (weight() == event.weight())
-        && (hitPenalty() == event.hitPenalty())
-        && (missPenalty() == event.missPenalty());
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(key(), weight(), missPenalty(), hitPenalty());
-  }
-
-  @Override
-  public String toString() {
-    return MoreObjects.toStringHelper(this)
-        .add("key", key())
-        .add("weight", weight())
-        .add("hit penalty", hitPenalty())
-        .add("miss penalty", missPenalty())
-        .toString();
-  }
-
-  /** Returns an event for the given key. */
-  public static AccessEvent forKey(long key) {
-    return new AccessEvent(key);
-  }
-
-  /** Returns an event for the given key and weight. */
-  public static AccessEvent forKeyAndWeight(long key, int weight) {
-    return new WeightedAccessEvent(key, weight);
-  }
-
-  /** Returns an event for the given key and penalties. */
-  public static AccessEvent forKeyAndPenalties(long key, double hitPenalty, double missPenalty) {
-    return new PenaltiesAccessEvent(key, hitPenalty, missPenalty);
-  }
-
-  private static final class LongInterner {
-    static final AtomicReferenceArray<@Nullable Long> cache = new AtomicReferenceArray<>(1 << 20);
-    static final int MASK = cache.length() - 1;
-
-    static Long boxed(long l) {
-      int index = Long.hashCode(l) & MASK;
-      @Var Long boxed = cache.get(index);
-      if ((boxed == null) || (boxed != l)) {
-        boxed = l;
-        LongInterner.cache.set(index, boxed);
-      }
-      return boxed;
+    private AccessEvent(long key) {
+        this.key = key;
     }
-  }
 
-  @SuppressFBWarnings("EQ_DOESNT_OVERRIDE_EQUALS")
-  private static final class WeightedAccessEvent extends AccessEvent {
-    private final int weight;
+    public long key() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-    WeightedAccessEvent(long key, int weight) {
-      super(key);
-      this.weight = weight;
-      checkArgument(weight >= 0);
+    public Long longKey() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    @Override public int weight() {
-      return weight;
-    }
-  }
 
-  @SuppressFBWarnings("EQ_DOESNT_OVERRIDE_EQUALS")
-  private static final class PenaltiesAccessEvent extends AccessEvent {
-    private final double missPenalty;
-    private final double hitPenalty;
+    public int weight() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-    PenaltiesAccessEvent(long key, double hitPenalty, double missPenalty) {
-      super(key);
-      this.hitPenalty = hitPenalty;
-      this.missPenalty = missPenalty;
-      checkArgument(hitPenalty >= 0);
-      checkArgument(missPenalty >= hitPenalty);
+    public double hitPenalty() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    @Override public double missPenalty() {
-      return missPenalty;
+
+    public double missPenalty() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    @Override public double hitPenalty() {
-      return hitPenalty;
+
+    public boolean isPenaltyAware() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    @Override public boolean isPenaltyAware() {
-      return true;
+
+    @Override
+    @SuppressFBWarnings("FE_FLOATING_POINT_EQUALITY")
+    public boolean equals(@Nullable Object o) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
+
+    @Override
+    public int hashCode() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public String toString() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public static AccessEvent forKey(long key) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public static AccessEvent forKeyAndWeight(long key, int weight) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public static AccessEvent forKeyAndPenalties(long key, double hitPenalty, double missPenalty) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    private static final class LongInterner {
+
+        static final AtomicReferenceArray<@Nullable Long> cache = new AtomicReferenceArray<>(1 << 20);
+
+        static final int MASK = cache.length() - 1;
+
+        static Long boxed(long l) {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
+
+    @SuppressFBWarnings("EQ_DOESNT_OVERRIDE_EQUALS")
+    private static final class WeightedAccessEvent extends AccessEvent {
+
+        private final int weight;
+
+        WeightedAccessEvent(long key, int weight) {
+            super(key);
+            this.weight = weight;
+            checkArgument(weight >= 0);
+        }
+
+        @Override
+        public int weight() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
+
+    @SuppressFBWarnings("EQ_DOESNT_OVERRIDE_EQUALS")
+    private static final class PenaltiesAccessEvent extends AccessEvent {
+
+        private final double missPenalty;
+
+        private final double hitPenalty;
+
+        PenaltiesAccessEvent(long key, double hitPenalty, double missPenalty) {
+            super(key);
+            this.hitPenalty = hitPenalty;
+            this.missPenalty = missPenalty;
+            checkArgument(hitPenalty >= 0);
+            checkArgument(missPenalty >= hitPenalty);
+        }
+
+        @Override
+        public double missPenalty() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public double hitPenalty() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+
+        @Override
+        public boolean isPenaltyAware() {
+            throw new UnsupportedOperationException("STUB: not implemented");
+        }
+    }
 }

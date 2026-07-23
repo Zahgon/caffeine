@@ -16,9 +16,7 @@
 package com.github.benmanes.caffeine.cache.simulator.policy.sketch.climbing;
 
 import static java.util.Objects.requireNonNull;
-
 import java.util.function.Function;
-
 import com.github.benmanes.caffeine.cache.simulator.policy.sketch.climbing.gradient.Adam;
 import com.github.benmanes.caffeine.cache.simulator.policy.sketch.climbing.gradient.AmsGrad;
 import com.github.benmanes.caffeine.cache.simulator.policy.sketch.climbing.gradient.Nadam;
@@ -36,29 +34,27 @@ import com.typesafe.config.Config;
  */
 @SuppressWarnings("ImmutableEnumChecker")
 public enum HillClimberType {
-  // hill climbing
-  SIMPLE(SimpleClimber::new),
-  SIMULATED_ANNEALING(SimulatedAnnealingClimber::new),
 
-  // gradient descent
-  STOCHASTIC_GRADIENT_DESCENT(Stochastic::new),
-  AMSGRAD(AmsGrad::new),
-  NADAM(Nadam::new),
-  ADAM(Adam::new),
+    // hill climbing
+    SIMPLE(SimpleClimber::new),
+    SIMULATED_ANNEALING(SimulatedAnnealingClimber::new),
+    // gradient descent
+    STOCHASTIC_GRADIENT_DESCENT(Stochastic::new),
+    AMSGRAD(AmsGrad::new),
+    NADAM(Nadam::new),
+    ADAM(Adam::new),
+    // simulation
+    MINISIM(MiniSimClimber::new),
+    // inference
+    INDICATOR(IndicatorClimber::new);
 
-  // simulation
-  MINISIM(MiniSimClimber::new),
+    private final Function<Config, HillClimber> factory;
 
-  // inference
-  INDICATOR(IndicatorClimber::new);
+    HillClimberType(Function<Config, HillClimber> factory) {
+        this.factory = requireNonNull(factory);
+    }
 
-  private final Function<Config, HillClimber> factory;
-
-  HillClimberType(Function<Config, HillClimber> factory) {
-    this.factory = requireNonNull(factory);
-  }
-
-  public HillClimber create(Config config) {
-    return factory.apply(config);
-  }
+    public HillClimber create(Config config) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

@@ -27,34 +27,36 @@ import com.typesafe.config.Config;
  */
 @SuppressWarnings("UnstableApiUsage")
 public final class GuavaBloomFilter implements Membership {
-  private final long expectedInsertions;
-  private final double fpp;
 
-  private BloomFilter<Long> bloomFilter;
+    private final long expectedInsertions;
 
-  public GuavaBloomFilter(Config config) {
-    MembershipSettings settings = new BasicSettings(config).membership();
-    this.expectedInsertions = settings.expectedInsertions();
-    this.fpp = settings.fpp();
-    reset();
-  }
+    private final double fpp;
 
-  @Override
-  public boolean mightContain(long e) {
-    return bloomFilter.mightContain(e);
-  }
+    private BloomFilter<Long> bloomFilter;
 
-  @Override
-  public void clear() {
-    reset();
-  }
+    public GuavaBloomFilter(Config config) {
+        MembershipSettings settings = new BasicSettings(config).membership();
+        this.expectedInsertions = settings.expectedInsertions();
+        this.fpp = settings.fpp();
+        reset();
+    }
 
-  @Override
-  public boolean put(long e) {
-    return bloomFilter.put(e);
-  }
+    @Override
+    public boolean mightContain(long e) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  private void reset() {
-    bloomFilter = BloomFilter.create(Funnels.longFunnel(), expectedInsertions, fpp);
-  }
+    @Override
+    public void clear() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public boolean put(long e) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    private void reset() {
+        bloomFilter = BloomFilter.create(Funnels.longFunnel(), expectedInsertions, fpp);
+    }
 }

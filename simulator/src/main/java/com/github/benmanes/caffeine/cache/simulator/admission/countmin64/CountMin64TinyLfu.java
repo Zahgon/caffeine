@@ -35,48 +35,46 @@ import com.typesafe.config.Config;
  * @author gilga1983@gmail.com (Gilga Einziger)
  */
 public final class CountMin64TinyLfu implements Frequency {
-  private static final int MAX_COUNT = 15;
 
-  final boolean conservative;
-  final CountMin64 sketch;
-  final int sampleSize;
-  int size;
+    private static final int MAX_COUNT = 15;
 
-  public CountMin64TinyLfu(Config config) {
-    var settings = new BasicSettings(config);
-    sketch = new CountMin64(settings.tinyLfu().countMin64().eps(),
-        settings.tinyLfu().countMin64().confidence(), settings.randomSeed());
-    sampleSize = Math.toIntExact(10 * settings.maximumSize());
-    conservative = settings.tinyLfu().conservative();
-  }
+    final boolean conservative;
 
-  /** Returns the estimated usage frequency of the item. */
-  @Override
-  public int frequency(long o) {
-    return (int) sketch.estimateCount(o);
-  }
+    final CountMin64 sketch;
 
-  @Override
-  public void increment(long o) {
-    if (sketch.estimateCount(o) < MAX_COUNT) {
-      sketch.add(o, 1, conservative);
-    }
-    size += 1;
-    resetIfNeeded();
-  }
+    final int sampleSize;
 
-  private void resetIfNeeded() {
-    if (size <= sampleSize) {
-      return;
+    int size;
+
+    public CountMin64TinyLfu(Config config) {
+        var settings = new BasicSettings(config);
+        sketch = new CountMin64(settings.tinyLfu().countMin64().eps(), settings.tinyLfu().countMin64().confidence(), settings.randomSeed());
+        sampleSize = Math.toIntExact(10 * settings.maximumSize());
+        conservative = settings.tinyLfu().conservative();
     }
 
-    @Var int oddCount = 0;
-    for (int i = 0; i < sketch.depth; i++) {
-      for (int j = 0; j < sketch.width; j++) {
-        oddCount += ((int) sketch.table[i][j]) & 1;
-        sketch.table[i][j] >>>= 1;
-      }
+    @Override
+    public int frequency(long o) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    size = (size / 2) - (oddCount / sketch.depth);
-  }
+
+    @Override
+    public void increment(long o) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    private void resetIfNeeded() {
+        if (size <= sampleSize) {
+            return;
+        }
+        @Var
+        int oddCount = 0;
+        for (int i = 0; i < sketch.depth; i++) {
+            for (int j = 0; j < sketch.width; j++) {
+                oddCount += ((int) sketch.table[i][j]) & 1;
+                sketch.table[i][j] >>>= 1;
+            }
+        }
+        size = (size / 2) - (oddCount / sketch.depth);
+    }
 }

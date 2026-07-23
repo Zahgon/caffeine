@@ -24,43 +24,38 @@ import static java.util.Objects.requireNonNull;
  * @author ben.manes@gmail.com (Ben Manes)
  */
 public final class Expirable<V> {
-  private final V value;
 
-  private volatile long expireTimeMillis;
+    private final V value;
 
-  public Expirable(V value, long expireTimeMillis) {
-    this.value = requireNonNull(value);
-    this.expireTimeMillis = expireTimeMillis;
-  }
+    private volatile long expireTimeMillis;
 
-  /** Returns the value. */
-  public V get() {
-    return value;
-  }
+    public Expirable(V value, long expireTimeMillis) {
+        this.value = requireNonNull(value);
+        this.expireTimeMillis = expireTimeMillis;
+    }
 
-  /** Returns the time, in milliseconds, when the value will expire. */
-  public long getExpireTimeMillis() {
-    return expireTimeMillis;
-  }
+    public V get() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  /** Specifies the time, in milliseconds, when the value will expire. */
-  public void setExpireTimeMillis(long expireTimeMillis) {
-    this.expireTimeMillis = expireTimeMillis;
-  }
+    public long getExpireTimeMillis() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  /** Returns if the value has expired and is eligible for eviction. */
-  public boolean hasExpired(long currentTimeMillis) {
-    return (currentTimeMillis - expireTimeMillis) >= 0;
-  }
+    public void setExpireTimeMillis(long expireTimeMillis) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  /** Returns if the value will never expire. */
-  public boolean isEternal() {
-    return (expireTimeMillis == Long.MAX_VALUE);
-  }
+    public boolean hasExpired(long currentTimeMillis) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  public String toString() {
-    return String.format(US, "%s{value=%s, expireTimeMillis=%,d}",
-        getClass().getSimpleName(), value, expireTimeMillis);
-  }
+    public boolean isEternal() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public String toString() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

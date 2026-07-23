@@ -17,7 +17,6 @@ package com.github.benmanes.caffeine.cache.simulator.parser.gradle;
 
 import java.math.BigInteger;
 import java.util.stream.LongStream;
-
 import com.github.benmanes.caffeine.cache.simulator.parser.TextTraceReader;
 import com.github.benmanes.caffeine.cache.simulator.parser.TraceReader.KeyOnlyTraceReader;
 
@@ -28,14 +27,12 @@ import com.github.benmanes.caffeine.cache.simulator.parser.TraceReader.KeyOnlyTr
  */
 public final class GradleTraceReader extends TextTraceReader implements KeyOnlyTraceReader {
 
-  public GradleTraceReader(String filePath) {
-    super(filePath);
-  }
+    public GradleTraceReader(String filePath) {
+        super(filePath);
+    }
 
-  @Override
-  public LongStream keys() {
-    return lines()
-        .map(uuid -> new BigInteger(uuid, 16))
-        .mapToLong(num -> num.shiftRight(64).longValue() ^ num.longValue());
-  }
+    @Override
+    public LongStream keys() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

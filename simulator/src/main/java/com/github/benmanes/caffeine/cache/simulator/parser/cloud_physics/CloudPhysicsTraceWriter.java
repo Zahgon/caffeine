@@ -18,7 +18,6 @@ package com.github.benmanes.caffeine.cache.simulator.parser.cloud_physics;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-
 import com.github.benmanes.caffeine.cache.simulator.parser.TraceWriter;
 import com.github.benmanes.caffeine.cache.simulator.policy.AccessEvent;
 import com.google.common.hash.Hashing;
@@ -29,20 +28,20 @@ import com.google.common.hash.Hashing;
  * @author ben.manes@gmail.com (Ben Manes)
  */
 public final class CloudPhysicsTraceWriter implements TraceWriter {
-  private final DataOutputStream writer;
 
-  public CloudPhysicsTraceWriter(OutputStream output) {
-    this.writer = new DataOutputStream(output);
-  }
+    private final DataOutputStream writer;
 
-  @Override
-  public void writeEvent(AccessEvent event) throws IOException {
-    int key = Hashing.murmur3_128().hashLong(event.key()).asInt();
-    writer.writeInt(key);
-  }
+    public CloudPhysicsTraceWriter(OutputStream output) {
+        this.writer = new DataOutputStream(output);
+    }
 
-  @Override
-  public void close() throws IOException {
-    writer.close();
-  }
+    @Override
+    public void writeEvent(AccessEvent event) throws IOException {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    @Override
+    public void close() throws IOException {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

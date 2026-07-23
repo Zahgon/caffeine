@@ -16,7 +16,6 @@
 package com.github.benmanes.caffeine.jcache;
 
 import java.util.AbstractMap.SimpleImmutableEntry;
-
 import javax.cache.Cache;
 
 /**
@@ -24,21 +23,16 @@ import javax.cache.Cache;
  *
  * @author ben.manes@gmail.com (Ben Manes)
  */
-public final class EntryProxy<K, V> extends SimpleImmutableEntry<K, V>
-    implements Cache.Entry<K, V> {
-  private static final long serialVersionUID = 1L;
+public final class EntryProxy<K, V> extends SimpleImmutableEntry<K, V> implements Cache.Entry<K, V> {
 
-  public EntryProxy(K key, V value) {
-    super(key, value);
-  }
+    private static final long serialVersionUID = 1L;
 
-  @Override
-  public <T> T unwrap(Class<T> clazz) {
-    if (!clazz.isInstance(this)) {
-      throw new IllegalArgumentException("Class " + clazz + " is unknown to this implementation");
+    public EntryProxy(K key, V value) {
+        super(key, value);
     }
-    @SuppressWarnings("unchecked")
-    var castedEntry = (T) this;
-    return castedEntry;
-  }
+
+    @Override
+    public <T> T unwrap(Class<T> clazz) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

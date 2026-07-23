@@ -18,7 +18,6 @@ package com.github.benmanes.caffeine.cache.simulator.parser.corda;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.util.Set;
-
 import com.github.benmanes.caffeine.cache.simulator.parser.BinaryTraceReader;
 import com.github.benmanes.caffeine.cache.simulator.policy.AccessEvent;
 import com.github.benmanes.caffeine.cache.simulator.policy.Policy.Characteristic;
@@ -30,17 +29,17 @@ import com.github.benmanes.caffeine.cache.simulator.policy.Policy.Characteristic
  */
 public final class CordaTraceReader extends BinaryTraceReader {
 
-  public CordaTraceReader(String filePath) {
-    super(filePath);
-  }
+    public CordaTraceReader(String filePath) {
+        super(filePath);
+    }
 
-  @Override
-  public Set<Characteristic> characteristics() {
-    return Set.of();
-  }
+    @Override
+    public Set<Characteristic> characteristics() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 
-  @Override
-  protected AccessEvent readEvent(DataInputStream input) throws IOException {
-    return AccessEvent.forKey(input.readLong());
-  }
+    @Override
+    protected AccessEvent readEvent(DataInputStream input) throws IOException {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

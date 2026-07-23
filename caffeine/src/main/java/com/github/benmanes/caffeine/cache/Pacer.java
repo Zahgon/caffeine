@@ -17,11 +17,9 @@ package com.github.benmanes.caffeine.cache;
 
 import static com.github.benmanes.caffeine.cache.Caffeine.ceilingPowerOfTwo;
 import static java.util.Objects.requireNonNull;
-
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -32,70 +30,38 @@ import org.jspecify.annotations.Nullable;
  * @author ben.manes@gmail.com (Ben Manes)
  */
 final class Pacer {
-  static final long TOLERANCE = ceilingPowerOfTwo(TimeUnit.SECONDS.toNanos(1)); // 1.07s
 
-  final Scheduler scheduler;
+    // 1.07s
+    static final long TOLERANCE = ceilingPowerOfTwo(TimeUnit.SECONDS.toNanos(1));
 
-  long nextFireTime;
-  @Nullable Future<?> future;
+    final Scheduler scheduler;
 
-  Pacer(Scheduler scheduler) {
-    this.scheduler = requireNonNull(scheduler);
-  }
+    long nextFireTime;
 
-  /** Schedules the task, pacing the execution if occurring too often. */
-  public void schedule(Executor executor, Runnable command, long now, long delay) {
-    long scheduleAt = (now + delay);
+    @Nullable
+    Future<?> future;
 
-    if (future == null) {
-      // short-circuit an immediate scheduler causing an infinite loop during initialization
-      if (nextFireTime != 0L) {
-        return;
-      }
-    } else if ((nextFireTime - now) > 0L) {
-      // Determine whether to reschedule
-      if (!future.isDone() && maySkip(scheduleAt)) {
-        return;
-      }
-      future.cancel(/* mayInterruptIfRunning= */ false);
+    Pacer(Scheduler scheduler) {
+        this.scheduler = requireNonNull(scheduler);
     }
-    long actualDelay = calculateSchedule(now, delay, scheduleAt);
-    future = scheduler.schedule(executor, command, actualDelay, TimeUnit.NANOSECONDS);
-  }
 
-  /** Attempts to cancel execution of the scheduled task, if present. */
-  public void cancel() {
-    if (future != null) {
-      future.cancel(/* mayInterruptIfRunning= */ false);
-      nextFireTime = 0L;
-      future = null;
+    public void schedule(Executor executor, Runnable command, long now, long delay) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  /** Returns if a task is scheduled to run. */
-  public boolean isScheduled() {
-    return (future != null) && !future.isDone();
-  }
-
-  /**
-   * Returns if the current fire time is sooner, or if it is later and within the tolerance limit.
-   */
-  boolean maySkip(long scheduleAt) {
-    long delta = (scheduleAt - nextFireTime);
-    return (delta >= -TOLERANCE);
-  }
-
-  /** Returns the delay and sets the next fire time, avoiding the 0L unscheduled sentinel. */
-  long calculateSchedule(long now, long delay, long scheduleAt) {
-    if (delay <= TOLERANCE) {
-      // Use a minimum delay if close to now
-      nextFireTime = (now + TOLERANCE);
-      if (nextFireTime == 0L) {
-        nextFireTime = 1L;
-      }
-      return TOLERANCE;
+    public void cancel() {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-    nextFireTime = (scheduleAt == 0L) ? 1L : scheduleAt;
-    return delay;
-  }
+
+    public boolean isScheduled() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    boolean maySkip(long scheduleAt) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    long calculateSchedule(long now, long delay, long scheduleAt) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

@@ -16,12 +16,10 @@
 package com.github.benmanes.caffeine.jcache.event;
 
 import static java.util.Objects.requireNonNull;
-
 import java.io.Closeable;
 import java.io.IOException;
 import java.lang.System.Logger;
 import java.lang.System.Logger.Level;
-
 import javax.cache.event.CacheEntryCreatedListener;
 import javax.cache.event.CacheEntryEvent;
 import javax.cache.event.CacheEntryExpiredListener;
@@ -35,98 +33,51 @@ import javax.cache.event.EventType;
  *
  * @author ben.manes@gmail.com (Ben Manes)
  */
-final class EventTypeAwareListener<K, V> implements CacheEntryCreatedListener<K, V>,
-    CacheEntryUpdatedListener<K, V>, CacheEntryRemovedListener<K, V>,
-    CacheEntryExpiredListener<K, V>, Closeable {
-  static final Logger logger = System.getLogger(EventTypeAwareListener.class.getName());
+final class EventTypeAwareListener<K, V> implements CacheEntryCreatedListener<K, V>, CacheEntryUpdatedListener<K, V>, CacheEntryRemovedListener<K, V>, CacheEntryExpiredListener<K, V>, Closeable {
 
-  final CacheEntryListener<? super K, ? super V> listener;
+    static final Logger logger = System.getLogger(EventTypeAwareListener.class.getName());
 
-  public EventTypeAwareListener(CacheEntryListener<? super K, ? super V> listener) {
-    this.listener = requireNonNull(listener);
-  }
+    final CacheEntryListener<? super K, ? super V> listener;
 
-  /** Returns if the backing listener consumes this type of event. */
-  @SuppressWarnings("StatementSwitchToExpressionSwitch")
-  public boolean isCompatible(EventType eventType) {
-    switch (eventType) {
-      case CREATED:
-        return (listener instanceof CacheEntryCreatedListener<?, ?>);
-      case UPDATED:
-        return (listener instanceof CacheEntryUpdatedListener<?, ?>);
-      case REMOVED:
-        return (listener instanceof CacheEntryRemovedListener<?, ?>);
-      case EXPIRED:
-        return (listener instanceof CacheEntryExpiredListener<?, ?>);
+    public EventTypeAwareListener(CacheEntryListener<? super K, ? super V> listener) {
+        this.listener = requireNonNull(listener);
     }
-    throw new IllegalStateException("Unknown event type: " + eventType);
-  }
 
-  /** Processes the event and logs if an exception is thrown. */
-  public void dispatch(JCacheEntryEvent<K, V> event) {
-    try {
-      if (event.getSource().isClosed()) {
-        return;
-      }
-      switch (event.getEventType()) {
-        case CREATED:
-          onCreated(event);
-          return;
-        case UPDATED:
-          onUpdated(event);
-          return;
-        case REMOVED:
-          onRemoved(event);
-          return;
-        case EXPIRED:
-          onExpired(event);
-          return;
-      }
-      logger.log(Level.WARNING, "Unknown event type: {}",
-          event.getEventType(), new IllegalStateException());
-    } catch (RuntimeException e) {
-      logger.log(Level.WARNING, "", e);
-    } catch (Throwable t) {
-      logger.log(Level.ERROR, "", t);
+    @SuppressWarnings("StatementSwitchToExpressionSwitch")
+    public boolean isCompatible(EventType eventType) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  @Override
-  @SuppressWarnings("unchecked")
-  public void onCreated(Iterable<CacheEntryEvent<? extends K, ? extends V>> events) {
-    if (listener instanceof CacheEntryCreatedListener<?, ?>) {
-      ((CacheEntryCreatedListener<K, V>) listener).onCreated(events);
+    public void dispatch(JCacheEntryEvent<K, V> event) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  @Override
-  @SuppressWarnings("unchecked")
-  public void onUpdated(Iterable<CacheEntryEvent<? extends K, ? extends V>> events) {
-    if (listener instanceof CacheEntryUpdatedListener<?, ?>) {
-      ((CacheEntryUpdatedListener<K, V>) listener).onUpdated(events);
+    @Override
+    @SuppressWarnings("unchecked")
+    public void onCreated(Iterable<CacheEntryEvent<? extends K, ? extends V>> events) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  @Override
-  @SuppressWarnings("unchecked")
-  public void onRemoved(Iterable<CacheEntryEvent<? extends K, ? extends V>> events) {
-    if (listener instanceof CacheEntryRemovedListener<?, ?>) {
-      ((CacheEntryRemovedListener<K, V>) listener).onRemoved(events);
+    @Override
+    @SuppressWarnings("unchecked")
+    public void onUpdated(Iterable<CacheEntryEvent<? extends K, ? extends V>> events) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  @Override
-  @SuppressWarnings("unchecked")
-  public void onExpired(Iterable<CacheEntryEvent<? extends K, ? extends V>> events) {
-    if (listener instanceof CacheEntryExpiredListener<?, ?>) {
-      ((CacheEntryExpiredListener<K, V>) listener).onExpired(events);
+    @Override
+    @SuppressWarnings("unchecked")
+    public void onRemoved(Iterable<CacheEntryEvent<? extends K, ? extends V>> events) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
 
-  @Override
-  public void close() throws IOException {
-    if (listener instanceof Closeable) {
-      ((Closeable) listener).close();
+    @Override
+    @SuppressWarnings("unchecked")
+    public void onExpired(Iterable<CacheEntryEvent<? extends K, ? extends V>> events) {
+        throw new UnsupportedOperationException("STUB: not implemented");
     }
-  }
+
+    @Override
+    public void close() throws IOException {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }

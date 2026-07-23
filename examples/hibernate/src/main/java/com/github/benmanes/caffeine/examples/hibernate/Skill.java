@@ -16,9 +16,7 @@
 package com.github.benmanes.caffeine.examples.hibernate;
 
 import static org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE;
-
 import org.hibernate.annotations.Cache;
-
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
@@ -29,17 +27,18 @@ import jakarta.persistence.Id;
 @Entity
 @Cache(usage = READ_WRITE)
 public class Skill {
-  @Id
-  @GeneratedValue
-  private int id;
 
-  private String name;
+    @Id
+    @GeneratedValue
+    private int id;
 
-  public String getName() {
-    return name;
-  }
+    private String name;
 
-  public void setName(String name) {
-    this.name = name;
-  }
+    public String getName() {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
+
+    public void setName(String name) {
+        throw new UnsupportedOperationException("STUB: not implemented");
+    }
 }
